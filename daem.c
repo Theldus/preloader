@@ -49,34 +49,33 @@ static uintptr_t addr_start;
  */
 static char* daemon_main(int *argc)
 {
-	uint64_t t0, t1;
-	pid_t pid;
-	char *argv;
+	char *cwd_argv;
 	int conn_fd;
-
-	printf("dmain: %d\n", (int)getpid());
 
 	ipc_init();
 
 	while (1)
 	{
-		conn_fd = ipc_wait_conn();
+		conn_fd  = ipc_wait_conn();
+		cwd_argv = ipc_recv_msg(conn_fd, argc);
 
-t0 = time_ms();
-		argv = ipc_recv_msg(conn_fd, argc);
-
-		if (!argv)
+		if (!cwd_argv)
 			die("unable to receive message\n");
 
-		if ((pid = fork()) == 0)
-			return (argv);
-		else
-			wait(NULL);
-t1 = time_ms();
+		if (fork() == 0)
+		{
+			/* Redirect stdout and stderr to the socket. */
+			dup2(conn_fd, STDOUT_FILENO);
+			dup2(conn_fd, STDERR_FILENO);
+			close(conn_fd);
 
-		printf("build time: %dms\n", t1-t0);
+			/* Set the current directory. */
+			chdir(cwd_argv);
+			return (cwd_argv);
+		}
 
-		_exit(0);
+		close(conn_fd);
+		free(cwd_argv);
 	}
 
 	_exit(0);
@@ -85,13 +84,11 @@ t1 = time_ms();
 /**
  *
  */
-static void change_argv(int argc, char *cwd_argv, volatile uint64_t *sp)
+static void change_argv(int argc, char *cwd_argv, volatile uintptr_t *sp)
 {
 	char *p;    /* Character pointer.  */
 	int count;  /* Current argv pos.   */
 	char *argv; /* Argv pointer.       */
-
-	printf("cwd: %s (pid: %d)\n", cwd_argv, (int)getpid());
 
 	/* Skip CWD. */
 	for (p = cwd_argv; *p != '\0'; p++);
@@ -102,14 +99,10 @@ static void change_argv(int argc, char *cwd_argv, volatile uint64_t *sp)
 	{
 		if (*p == '\0')
 		{
-			sp[count++] = (uint64_t)argv;
+			sp[count++] = (uintptr_t)argv;
 			argv = p + 1;
 		}
 	}
-
-
-	for (count = 0; count < argc; count++)
-		printf("change_argv[%d] = %s\n", count, (char*)sp[count]);
 }
 
 /**
@@ -117,30 +110,24 @@ static void change_argv(int argc, char *cwd_argv, volatile uint64_t *sp)
  */
 static void pre_daemon_main(void)
 {
-	volatile uint64_t *stack;
-	volatile uint64_t *sp;
+	volatile uintptr_t *stack;
+	volatile uintptr_t *sp;
 	uintptr_t atexit_ptr;
 	char *cwd_argv;
 	int argc;
 	int i;
 
-	stack = NULL;
-	sp = NULL;
+	#define MAX_LOOKUP 15
 
 	/* Get stack pointer. */
 	__asm__ __volatile__ ("mov %%rsp, %%rax" : "=a" (stack));
 
 	/* Attempt to find the return address. */
-	for (i = 0, sp = stack; i < 15; i++, sp++)
-	{
+	for (i = 0, sp = stack; i < MAX_LOOKUP; i++, sp++)
 		if (stack[i] == addr_start + (sizeof bck_start))
-		{
-			sp = &stack[i];
 			break;
-		}
-	}
 
-	if (i == 15)
+	if (i == MAX_LOOKUP)
 		die("Unable to find the return address, "
 			"I can't proceed\n");
 
@@ -159,25 +146,14 @@ static void pre_daemon_main(void)
 		die("PRELOADed lib has argc (%d) less than the required (%d) argc!\n"
 			"Please launch with a greater argc!\n", sp[IDX_ARGC], argc);
 
-	//dump_stack(sp);
-
 	sp[IDX_ARGC] = argc;
 
 	/* ====================== Change argv. ====================== */
 	change_argv(argc, cwd_argv, &sp[IDX_ARGV]);
 
 	/*
-	 * Shift envp and auxv too .... errr... nope...
-	 *
-	 * Yes, that sounds strange, but it seems that glibc uses other
-	 * means to find the environment variables, and... if we shift
-	 * positions, functions like getenv() may not be able to find
-	 * the variables in the expected positions.
-	 */
-
-	/*
 	 * Finally our work is almost done, we need to X more things:
-	 * 1) Restore _start original content (mprotect pensar!)
+	 * 1) Restore _start original content
 	 * 2) Fix the return address, so _start can be 'restarted' from
 	 *    the beginning.
 	 * 3) 'pop' and restore %rdx (atexit_ptr) value.
@@ -188,8 +164,6 @@ static void pre_daemon_main(void)
 
 	/* 2) Fix return address. */
 	sp[0] -= sizeof bck_start;
-
-	//dump_stack(sp);
 
 	/*
 	 * 3) 'pop' & restore %rdx.

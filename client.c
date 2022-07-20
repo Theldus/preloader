@@ -40,25 +40,6 @@
 
 #define SV_PORT 3636
 
-static int sv_fd;
-
-/**
- *
- */
-struct net_data
-{
-	/* Buffer. */
-	uint8_t buff[1024];
-	/* Buffer current position. */
-	size_t cur_pos;
-	/* Amount of read bytes. */
-	size_t amt_read;
-	/* Client fd. */
-	int client;
-	/* Error flag. */
-	int error;
-};
-
 /**
  * @brief Given a 32-bit message, encodes the content
  * to be sent.
@@ -73,35 +54,6 @@ static inline void int32_to_msg(int32_t msg, uint8_t *msg_buff)
 	msg_buff[1] = (msg >> 16);
 	msg_buff[2] = (msg >>  8);
 	msg_buff[3] = (msg >>  0);
-}
-
-/**
- * @brief Read a chunk of bytes and return the next byte
- * belonging to the frame.
- *
- * @param nd Websocket Frame Data.
- *
- * @return Returns the byte read, or -1 if error.
- *
- * @attention This is part of the internal API and is documented just
- * for completeness.
- */
-static inline int next_byte(struct net_data *nd)
-{
-	ssize_t n;
-
-	/* If empty or full. */
-	if (nd->cur_pos == 0 || nd->cur_pos == nd->amt_read)
-	{
-		if ((n = recv(nd->client, nd->buff, sizeof(nd->buff), 0)) <= 0)
-		{
-			nd->error = 1;
-			return (-1);
-		}
-		nd->amt_read = (size_t)n;
-		nd->cur_pos = 0;
-	}
-	return (nd->buff[nd->cur_pos++]);
 }
 
 /**
@@ -149,7 +101,7 @@ static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
 	char *p;
 
 	/* If argv[0] == 'client', we should use argv[1]+. */
-	if (strstr(argv[0], PRG_NAME))
+	if (!strcmp(argv[0], PRG_NAME) || !strcmp(argv[0], "./"PRG_NAME))
 	{
 		argc--;
 		argv++;
@@ -206,11 +158,12 @@ int main(int argc, char **argv)
 {
 	struct sockaddr_in sock_addr;
 	struct run_data rd;
+	char buff[1024];
 	ssize_t amnt;
 	int sock;
 
 	/* Require at least <program> and 1 program-argument. */
-	if (strstr(argv[0], PRG_NAME))
+	if (!strcmp(argv[0], PRG_NAME) || !strcmp(argv[0], "./"PRG_NAME))
 	{
 		if (argc < 3) /* client <program> <arg1>. */
 			usage(argv[0]);
@@ -236,8 +189,7 @@ int main(int argc, char **argv)
 	if (connect(sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) < 0)
 		die("Unable to connect to localhost on port %d!\n", SV_PORT);
 
-
-	/* Send argc, amt_bytes, cwd and path. */
+	/* Send argc, amt_bytes, cwd and argv. */
 	if (send_all(sock, rd.argc, sizeof rd.argc, 0) < 0)
 		die("Cant send argc, aborting!...\n");
 	if (send_all(sock, rd.amt_bytes, sizeof rd.amt_bytes, 0) < 0)
@@ -245,10 +197,12 @@ int main(int argc, char **argv)
 	if (send_all(sock, rd.cwd_argv, amnt, 0) < 0)
 		die("Cant send cwd_argv, aborting!...\n");
 
+	/* While connected and there is something to print. */
+	memset(buff, 0, sizeof buff);
+	while ((amnt = recv(sock, buff, sizeof buff, 0)) > 0)
+		write(STDOUT_FILENO, buff, amnt);
 
-	sleep(10);
-
-
+	close(sock);
 	free(rd.cwd_argv);
 	return (0);
 }

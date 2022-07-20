@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <string.h>
-#include <sys/mman.h>
 
 #include "ipc.h"
 #include "util.h"
@@ -209,10 +209,8 @@ char *ipc_recv_msg(int conn, int *argc_p)
 	}
 
 	/* Read CWD and argv. */
-	cwd_argv = mmap(0, amnt_bytes, PROT_READ|PROT_WRITE,
-		MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-
-	if (cwd_argv == MAP_FAILED)
+	cwd_argv = malloc(amnt_bytes);
+	if (!cwd_argv)
 	{
 		d_err("Cant allocate memory (%d bytes)!\n", amnt_bytes);
 		return (NULL);
@@ -230,6 +228,6 @@ char *ipc_recv_msg(int conn, int *argc_p)
 	*argc_p = argc;
 	return (cwd_argv);
 err0:
-	munmap(cwd_argv, amnt_bytes);
+	free(cwd_argv);
 	return (NULL);
 }
