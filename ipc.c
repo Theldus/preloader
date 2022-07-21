@@ -103,7 +103,7 @@ static inline int next_byte(struct net_data *nd)
 /**
  *
  */
-int ipc_init(void)
+int ipc_init(int port)
 {
 	struct sockaddr_in server;
 	int reuse;
@@ -121,7 +121,7 @@ int ipc_init(void)
 	memset((void*)&server, 0, sizeof(server));
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	server.sin_port = htons(SV_PORT);
+	server.sin_port = htons(port);
 
 	/* Bind. */
 	if (bind(sv_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
@@ -129,7 +129,7 @@ int ipc_init(void)
 
 	/* Listen. */
 	if (listen(sv_fd, SV_MAX_CLIENTS) < 0)
-		die("Unable to listen at port %d\n", SV_PORT);
+		die("Unable to listen at port %d\n", port);
 
 	return (0);
 }

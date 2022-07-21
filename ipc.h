@@ -25,10 +25,10 @@
 #ifndef IPC_H
 #define IPC_H
 
-	#define SV_PORT      3636
-	#define SV_MAX_CLIENTS 16
+	#define SV_DEFAULT_PORT 3636
+	#define SV_MAX_CLIENTS    16
 
-	extern int ipc_init(void);
+	extern int ipc_init(int port);
 	extern void ipc_finish(void);
 	extern int ipc_wait_conn(void);
 	extern char* ipc_recv_msg(int conn, int *argc_p);

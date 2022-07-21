@@ -22,6 +22,9 @@
  * SOFTWARE.
  */
 
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,7 +41,7 @@
 		exit(EXIT_FAILURE); \
 	} while (0)
 
-#define SV_PORT 3636
+#define SV_DEFAULT_PORT 3636
 
 /**
  * @brief Given a 32-bit message, encodes the content
@@ -100,13 +103,6 @@ static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
 	char cwd[4096] = {0};
 	char *p;
 
-	/* If argv[0] == 'client', we should use argv[1]+. */
-	if (!strcmp(argv[0], PRG_NAME) || !strcmp(argv[0], "./"PRG_NAME))
-	{
-		argc--;
-		argv++;
-	}
-
 	int32_to_msg(argc, rd->argc);
 
 	/* Get current working directory. */
@@ -138,17 +134,112 @@ static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
 }
 
 /**
+ * Safe string-to-int routine that takes into account:
+ * - Overflow and Underflow
+ * - No undefined behaviour
+ *
+ * Taken from https://stackoverflow.com/a/12923949/3594716
+ * and slightly adapted: no error classification, because
+ * I dont need to know, error is error.
+ *
+ * @param out Pointer to integer.
+ * @param s String to be converted.
+ *
+ * @return Returns 0 if success and a negative number otherwise.
+ */
+int str2int(int *out, const char *s)
+{
+	char *end;
+	if (s[0] == '\0' || isspace(s[0]))
+		return (-1);
+	errno = 0;
+
+	long l = strtol(s, &end, 10);
+
+	/* Both checks are needed because INT_MAX == LONG_MAX is possible. */
+	if (l > INT_MAX || (errno == ERANGE && l == LONG_MAX))
+		return (-1);
+	if (l < INT_MIN || (errno == ERANGE && l == LONG_MIN))
+		return (-1);
+	if (*end != '\0')
+		return (-1);
+
+	*out = l;
+	return (0);
+}
+
+/**
  *
  */
 static void usage(const char *prgname)
 {
 	fprintf(stderr,
 		"Usage:\n"
-		"  %s <program> <program-arguments>\n"
+		"  %s [-p <port>] <program> <program-arguments>\n"
 		"or\n"
 		"  %s <program-arguments>\n", prgname, prgname
 	);
 	exit(EXIT_FAILURE);
+}
+
+/**
+ *
+ */
+static char **parse_args(int *new_argc, char **argv, int *port)
+{
+	char **new_argv = argv;
+	int argc = *new_argc;
+
+	/* at least <program> <arg1>. */
+	if (argc < 2)
+		usage(argv[0]);
+
+	*port = SV_DEFAULT_PORT;
+
+	/*
+	 * If calling client 'normally':
+	 *    ./client           <program> <arg1> ... <argN>, min 3
+	 *      client           <program> <arg1> ... <argN>, min 3
+	 *    ./client -p <port> <program> <arg1> ... <argN>, min 4
+	 *      client -p <port  <program> <arg1> ... <argN>, min 4
+	 */
+	if (!strcmp(argv[0], PRG_NAME) || !strcmp(argv[0], "./"PRG_NAME))
+	{
+		if (!strcmp(argv[1], "-p"))
+		{
+			if (argc < 4)
+				usage(argv[0]);
+
+			/* Validate port number. */
+			if (str2int(port, argv[2]) < 0 || (*port < 0 || *port > 65535))
+			{
+				fprintf(stderr, "Invalid port number: (%s), "
+					"should be in: 0-65535\n", argv[2]);
+				usage(argv[0]);
+			}
+
+			argc -= 3;
+			new_argv += 3;
+		}
+
+		/* Ok, no port specified, check the arg count. */
+		else if (argc < 2)
+			usage(argv[0]);
+		else
+		{
+			argc -= 1;
+			new_argv += 1;
+		}
+	}
+
+	/*
+	 * If called by a symlink or if this client is renamed,
+	 * like:
+	 *    <program> <arg1> ... <argN>
+	 * do not touch argv and argv. */
+
+	*new_argc = argc;
+	return (new_argv);
 }
 
 /**
@@ -159,20 +250,18 @@ int main(int argc, char **argv)
 	struct sockaddr_in sock_addr;
 	struct run_data rd;
 	char buff[1024];
+	char **new_argv;
+	int new_argc;
 	ssize_t amnt;
 	int sock;
+	int port;
 
-	/* Require at least <program> and 1 program-argument. */
-	if (!strcmp(argv[0], PRG_NAME) || !strcmp(argv[0], "./"PRG_NAME))
-	{
-		if (argc < 3) /* client <program> <arg1>. */
-			usage(argv[0]);
-	}
-	else if (argc < 2) /* <program> <arg1>. */
-		usage(argv[0]);
+	/* Parse and validate arguments. */
+	new_argc = argc;
+	new_argv = parse_args(&new_argc, argv, &port);
 
 	/* Prepare data to be sent. */
-	if ((amnt = prepare_data(&rd, argc, argv)) < 0)
+	if ((amnt = prepare_data(&rd, new_argc, new_argv)) < 0)
 		die("Unable to prepare data to be sent!\n");
 
 	/* Create socket. */
@@ -183,11 +272,11 @@ int main(int argc, char **argv)
 	memset((void*)&sock_addr, 0, sizeof(sock_addr));
 	sock_addr.sin_family = AF_INET;
 	sock_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	sock_addr.sin_port = htons(SV_PORT);
+	sock_addr.sin_port = htons(port);
 
 	/* Connect. */
 	if (connect(sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) < 0)
-		die("Unable to connect to localhost on port %d!\n", SV_PORT);
+		die("Unable to connect to localhost on port %d!\n", port);
 
 	/* Send argc, amt_bytes, cwd and argv. */
 	if (send_all(sock, rd.argc, sizeof rd.argc, 0) < 0)

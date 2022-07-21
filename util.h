@@ -34,8 +34,9 @@
 
 	extern void _putcharfd(char c, void *pfd);
 	extern int64_t time_ms(void);
-	extern int read_and_check_pid(const char *pid_file);
-	extern int create_pid(const char *pid_file);
+	extern int read_and_check_pid(const char *pid_file, int port);
+	extern int create_pid(const char *pid_file, int port);
+	extern int str2int(int *out, const char *s);
 
 	#define die(...) \
 		do { \

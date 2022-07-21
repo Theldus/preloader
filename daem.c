@@ -35,7 +35,7 @@
 #include "ipc.h"
 #include "util.h"
 
-#define PID_FILE "/tmp/daem_3636.pid"
+#define PID_PATH "/tmp"
 
 #define IDX_ATEXIT_PTR 1
 #define IDX_ARGC       3
@@ -47,12 +47,24 @@ static uintptr_t addr_start;
 /**
  *
  */
+static struct args
+{
+	int port;
+	char *pid_path;
+} args = {
+	.port = SV_DEFAULT_PORT,
+	.pid_path = PID_PATH,
+};
+
+/**
+ *
+ */
 static char* daemon_main(int *argc)
 {
 	char *cwd_argv;
 	int conn_fd;
 
-	ipc_init();
+	ipc_init(args.port);
 
 	while (1)
 	{
@@ -144,7 +156,7 @@ static void pre_daemon_main(void)
 	/* Change argc. */
 	if ((int)sp[IDX_ARGC] < argc)
 		die("PRELOADed lib has argc (%d) less than the required (%d) argc!\n"
-			"Please launch with a greater argc!\n", sp[IDX_ARGC], argc);
+			"Please launch with a greater argc!\n", (int)sp[IDX_ARGC], argc);
 
 	sp[IDX_ARGC] = argc;
 
@@ -253,17 +265,41 @@ static int patch_start(uintptr_t start)
 /**
  *
  */
+static void parse_args(void)
+{
+	char *port;
+
+	/* Check port. */
+	if ((port = getenv("DAEM_PORT")) != NULL)
+	{
+		if (str2int(&args.port, port) < 0 ||
+			(args.port < 0 || args.port > 65535))
+		{
+			die("Invalid port (%s)\n", port);
+		}
+	}
+
+}
+
+/**
+ *
+ */
 void __attribute__ ((constructor)) my_init(void)
 {
 	COMPILE_TIME_ASSERT(sizeof(void*) == sizeof(uintptr_t));
 
+	parse_args();
+
 	/* Check if we're already running. */
-	if (!read_and_check_pid(PID_FILE))
+	if (!read_and_check_pid(PID_PATH, args.port))
 		return;
+
 	/* We should execute. */
 	else
-		if (create_pid(PID_FILE) < 0)
-			exit(1);
+	{
+		if (create_pid(PID_PATH, args.port) < 0)
+			die("Unable to create pid file, aborting...\n");
+	}
 
 	printf("Initializing...\n");
 
