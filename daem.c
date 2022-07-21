@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -50,6 +51,7 @@ static uintptr_t addr_start;
 static struct args
 {
 	int port;
+	int daemonize;
 	char *pid_path;
 } args = {
 	.port = SV_DEFAULT_PORT,
@@ -279,6 +281,34 @@ static void parse_args(void)
 		}
 	}
 
+	/* Check daemon. */
+	if (getenv("DAEM_DAEMONIZE"))
+		args.daemonize = 1;
+
+}
+
+/**
+ *
+ */
+static void daemonize(void)
+{
+	int fd;
+
+	/* Fork and let the parent dies. */
+	if (fork() != 0)
+		exit(0);
+
+	/* Create a new session. */
+	setsid();
+
+	/* Redirects stdin, stdout and stderr to /dev/null. */
+	if ((fd = open("/dev/null", O_RDWR, 0)) != -1)
+	{
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+		close(fd);
+	}
 }
 
 /**
@@ -297,6 +327,9 @@ void __attribute__ ((constructor)) my_init(void)
 	/* We should execute. */
 	else
 	{
+		if (args.daemonize)
+			daemonize();
+
 		if (create_pid(PID_PATH, args.port) < 0)
 			die("Unable to create pid file, aborting...\n");
 	}

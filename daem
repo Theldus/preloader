@@ -97,9 +97,15 @@ Examples:
   etc
 
 Options:
-  -p  Specifies the port to be listening (default: 3636)
-  -b  Performs immediate binding, i.e: uses LD_BIND_NOW
-  -h  This help
+  -p,--port             Specifies the port to be listening (default: 3636)
+  -b,--bind-now         Performs immediate binding, i.e: uses LD_BIND_NOW
+  -d,--daemonize        Daemonizes the server (disabled by default)
+  -o,--log-file <file>  Enable logging and save to the <file>.
+  -e,--log-stderr       Enable logging and outputs to stderr. Please note
+                        that -l and -e are mutually exclusive. Also note
+                        that when daemonized, logs to stderr will not work.
+  -l,--log-level
+  -h,--help             This help
 EOF
 	exit 1
 }
@@ -117,6 +123,10 @@ while [[ $# -gt 0 ]]; do
 			;;
 		-b|--bind-now)
 			export LD_BIND_NOW="1"
+			shift
+			;;
+		-d|--daemonize)
+			export DAEM_DAEMONIZE="1"
 			shift
 			;;
 		-h|--help)
