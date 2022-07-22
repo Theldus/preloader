@@ -85,6 +85,9 @@ static char* daemon_main(int *argc)
 
 			/* Set the current directory. */
 			chdir(cwd_argv);
+
+			/* Restore signal for SIGCHLD here. */
+			signal(SIGCHLD, SIG_DFL);
 			return (cwd_argv);
 		}
 
@@ -301,14 +304,10 @@ static void daemonize(void)
 	/* Create a new session. */
 	setsid();
 
-	/* Redirects stdin, stdout and stderr to /dev/null. */
-	if ((fd = open("/dev/null", O_RDWR, 0)) != -1)
-	{
-		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
-		close(fd);
-	}
+	/*
+	 * We can't close our fd's here because our children need
+	 * to inherit them to redirect I/O to the socket.
+	 */
 }
 
 /**
@@ -325,14 +324,13 @@ void __attribute__ ((constructor)) my_init(void)
 		return;
 
 	/* We should execute. */
-	else
-	{
-		if (args.daemonize)
-			daemonize();
+	if (args.daemonize)
+		daemonize();
 
-		if (create_pid(PID_PATH, args.port) < 0)
-			die("Unable to create pid file, aborting...\n");
-	}
+	if (create_pid(PID_PATH, args.port) < 0)
+		die("Unable to create pid file, aborting...\n");
+
+	signal(SIGCHLD, SIG_IGN);
 
 	printf("Initializing...\n");
 
