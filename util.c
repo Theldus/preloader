@@ -31,6 +31,8 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/time.h>
+
+#include "log.h"
 #include "util.h"
 
 /**

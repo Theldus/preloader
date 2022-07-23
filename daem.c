@@ -34,9 +34,12 @@
 #include <sys/wait.h>
 
 #include "ipc.h"
+#include "log.h"
 #include "util.h"
 
+#ifndef PID_PATH
 #define PID_PATH "/tmp"
+#endif
 
 #define IDX_ATEXIT_PTR 1
 #define IDX_ARGC       3
@@ -48,14 +51,12 @@ static uintptr_t addr_start;
 /**
  *
  */
-static struct args
-{
-	int port;
-	int daemonize;
-	char *pid_path;
-} args = {
-	.port = SV_DEFAULT_PORT,
+struct args args = {
+	.port     = SV_DEFAULT_PORT,
 	.pid_path = PID_PATH,
+	.log_lvl  = LOG_LVL_INFO,
+	.log_file = NULL,
+	.log_fd   = STDERR_FILENO
 };
 
 /**
@@ -78,6 +79,10 @@ static char* daemon_main(int *argc)
 
 		if (fork() == 0)
 		{
+			/* Close log file, because we do not need to
+			 * inherit it. */
+			log_close();
+
 			/* Redirect stdout and stderr to the socket. */
 			dup2(conn_fd, STDOUT_FILENO);
 			dup2(conn_fd, STDERR_FILENO);
@@ -272,22 +277,47 @@ static int patch_start(uintptr_t start)
  */
 static void parse_args(void)
 {
-	char *port;
+	char *env;
 
 	/* Check port. */
-	if ((port = getenv("DAEM_PORT")) != NULL)
+	if ((env = getenv("DAEM_PORT")) != NULL)
 	{
-		if (str2int(&args.port, port) < 0 ||
+		if (str2int(&args.port, env) < 0 ||
 			(args.port < 0 || args.port > 65535))
 		{
-			die("Invalid port (%s)\n", port);
+			die("Invalid port (%s)\n", env);
 		}
+	}
+
+	/* Check for log level. */
+	if ((env = getenv("DAEM_LOG_LVL")) != NULL)
+	{
+		if (!strcmp(env, "info"))
+			args.log_lvl = LOG_LVL_INFO;
+		else if (!strcmp(env, "err"))
+			args.log_lvl = LOG_LVL_ERR;
+		else if (!strcmp(env, "crit"))
+			args.log_lvl = LOG_LVL_CRIT;
+		else if (!strcmp(env, "all"))
+			args.log_lvl = LOG_LVL_ALL;
+		else
+			die("Unrecognized log_lvl (%s), supported ones are: \n"
+				"  info, err, crit and all!\n", env);
+	}
+
+	/* Check log file. */
+	if ((env = getenv("DAEM_LOG_FILE")) != NULL)
+	{
+		args.log_file = strdup(env);
+		args.log_fd = -1;
 	}
 
 	/* Check daemon. */
 	if (getenv("DAEM_DAEMONIZE"))
+	{
 		args.daemonize = 1;
-
+		args.log_fd = -1;
+	}
 }
 
 /**
@@ -319,26 +349,33 @@ void __attribute__ ((constructor)) my_init(void)
 
 	parse_args();
 
-	/* Check if we're already running. */
+	/* Check if we're already running, if so, do nothing. */
 	if (!read_and_check_pid(PID_PATH, args.port))
 		return;
 
-	/* We should execute. */
+	/* Initialize logs. */
+	if (log_init(&args) < 0)
+		die("Unable to initialize logging, plese check your parameters "
+			"and try again!\n");
+
+	/* Daemon. */
 	if (args.daemonize)
 		daemonize();
 
+	/* PID file. */
 	if (create_pid(PID_PATH, args.port) < 0)
 		die("Unable to create pid file, aborting...\n");
 
+	log_info("Initializing...\n");
+
+	/* Setup signals. */
 	signal(SIGCHLD, SIG_IGN);
 
-	printf("Initializing...\n");
-
-	addr_start = getauxval(AT_ENTRY);
-	if (!addr_start)
+	/* Read our '_start' address. */
+	if (!(addr_start = getauxval(AT_ENTRY)))
 		die("Unable to get AT_ENTRY, aborting...\n");
 
-	printf("AT_ENTRY: %" PRIx64"\n", addr_start);
+	log_info("AT_ENTRY: %" PRIx64"\n", addr_start);
 
 	if (make_rwx(addr_start, sizeof bck_start) < 0)
 		die("Unable to set entry point as RWX!...\n");

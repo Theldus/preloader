@@ -22,19 +22,30 @@
  * SOFTWARE.
  */
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef LOG_H
+#define LOG_H
 
 	#include <stdio.h>
 	#include <unistd.h>
 	#include <inttypes.h>
 
-	#define COMPILE_TIME_ASSERT(expr)  \
-		switch(0){case 0:case expr:;}
+	#include "daem.h"
 
-	extern int64_t time_ms(void);
-	extern int read_and_check_pid(const char *pid_file, int port);
-	extern int create_pid(const char *pid_file, int port);
-	extern int str2int(int *out, const char *s);
+	#define LOG_LVL_INFO 0
+	#define LOG_LVL_ERR  1
+	#define LOG_LVL_CRIT 2
+	#define LOG_LVL_ALL  4
 
-#endif /* UTIL_H */
+	extern int log_init(struct args *a);
+	extern void log_close(void);
+	extern void log_info(const char *fmt, ...);
+	extern void log_err(const char *fmt, ...);
+	extern void log_crit(const char *fmt, ...);
+
+	#define die(...) \
+		do { \
+			log_crit(__VA_ARGS__); \
+			_exit(1); \
+		} while (0)
+
+#endif /* LOG_H */

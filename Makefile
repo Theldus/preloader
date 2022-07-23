@@ -28,7 +28,7 @@ CC     ?= gcc
 CFLAGS += -fPIC -O0 $(INCLUDE) -g
 LDFLAGS = -shared
 
-OBJ = daem.o ipc.o util.o
+OBJ = daem.o ipc.o util.o log.o
 
 all: daem.so client
 

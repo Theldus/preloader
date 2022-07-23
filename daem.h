@@ -22,19 +22,19 @@
  * SOFTWARE.
  */
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef DAEM_H
+#define DAEM_H
 
-	#include <stdio.h>
-	#include <unistd.h>
-	#include <inttypes.h>
+	/* Our global arguments struct. */
+	struct args
+	{
+		int   port;
+		int   daemonize;
+		char *pid_path;
+		/* Log stuff. */
+		int   log_lvl;
+		char *log_file;
+		int   log_fd;
+	};
 
-	#define COMPILE_TIME_ASSERT(expr)  \
-		switch(0){case 0:case expr:;}
-
-	extern int64_t time_ms(void);
-	extern int read_and_check_pid(const char *pid_file, int port);
-	extern int create_pid(const char *pid_file, int port);
-	extern int str2int(int *out, const char *s);
-
-#endif /* UTIL_H */
+#endif /* DAEM_H */

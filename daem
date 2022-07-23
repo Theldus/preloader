@@ -64,7 +64,7 @@ start() {
 	#
 	# Obs:
 	#
-	LD_PRELOAD=$CURDIR/$LIBNAME "$1" {1..10}
+	LD_PRELOAD=$CURDIR/$LIBNAME "$1" {1..200}
 }
 
 stop() {
@@ -97,14 +97,24 @@ Examples:
   etc
 
 Options:
-  -p,--port             Specifies the port to be listening (default: 3636)
-  -b,--bind-now         Performs immediate binding, i.e: uses LD_BIND_NOW
-  -d,--daemonize        Daemonizes the server (disabled by default)
-  -o,--log-file <file>  Enable logging and save to the <file>.
-  -e,--log-stderr       Enable logging and outputs to stderr. Please note
-                        that -l and -e are mutually exclusive. Also note
-                        that when daemonized, logs to stderr will not work.
-  -l,--log-level
+  -p,--port             Specifies the port to be listening (default: 3636).
+  -b,--bind-now         Performs immediate binding, i.e: uses LD_BIND_NOW.
+  -d,--daemonize        Daemonizes the server (disabled by default).
+                        (Please note that logs are only saved if a file
+                         is specified with -o, otherwise, they are discarded).
+
+Logging:
+  -o,--log-file <file>  Save log to <file> (default is stderr).
+
+  -l,--log-level <info|err|crit|all>
+                        Specifies the log level (default: info):
+                        (Critical messages are always displayed)
+                        info: Only show information messages, that might be
+                              useful or not.
+                        err:  Only show error messages.
+                        crit: Only show critical messages.
+                        all:  All of the above.
+
   -h,--help             This help
 EOF
 	exit 1
@@ -127,6 +137,18 @@ while [[ $# -gt 0 ]]; do
 			;;
 		-d|--daemonize)
 			export DAEM_DAEMONIZE="1"
+			shift
+			;;
+		-o|--log-file)
+			check_for_null "$2"
+			export DAEM_LOG_FILE="$2"
+			shift
+			shift
+			;;
+		-l|--log-level)
+			check_for_null "$2"
+			export DAEM_LOG_LVL="$2"
+			shift
 			shift
 			;;
 		-h|--help)

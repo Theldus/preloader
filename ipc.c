@@ -29,7 +29,7 @@
 #include <arpa/inet.h>
 
 #include "ipc.h"
-#include "util.h"
+#include "log.h"
 
 static int sv_fd;
 
@@ -192,7 +192,7 @@ char *ipc_recv_msg(int conn, int *argc_p)
 	argc = msg_to_int32(tmp);
 	if (nd.error)
 	{
-		d_err("Unable to receive argc from %d!\n", conn);
+		log_err("Unable to receive argc from %d!\n", conn);
 		return (NULL);
 	}
 
@@ -204,7 +204,7 @@ char *ipc_recv_msg(int conn, int *argc_p)
 	amnt_bytes = msg_to_int32(tmp);
 	if (nd.error)
 	{
-		d_err("Unable to receive amnt_bytes from %d!\n", conn);
+		log_err("Unable to receive amnt_bytes from %d!\n", conn);
 		return (NULL);
 	}
 
@@ -212,7 +212,7 @@ char *ipc_recv_msg(int conn, int *argc_p)
 	cwd_argv = malloc(amnt_bytes);
 	if (!cwd_argv)
 	{
-		d_err("Cant allocate memory (%d bytes)!\n", amnt_bytes);
+		log_err("Cant allocate memory (%d bytes)!\n", amnt_bytes);
 		return (NULL);
 	}
 
@@ -221,7 +221,7 @@ char *ipc_recv_msg(int conn, int *argc_p)
 
 	if (nd.error)
 	{
-		d_err("Failed while receiving cwd_argv argument from %d!\n", conn);
+		log_err("Failed while receiving cwd_argv argument from %d!\n", conn);
 		goto err0;
 	}
 
