@@ -103,12 +103,17 @@ Options:
                         (Please note that logs are only saved if a file
                          is specified with -o, otherwise, they are discarded).
 
+  -f,--load-libs        Preloads a set of libraries (one per line) defined in
+                        a text file. This is especially useful if the program
+                        dynamically loads *many* libraries.
+
 Logging:
   -o,--log-file <file>  Save log to <file> (default is stderr).
 
   -l,--log-level <info|err|crit|all>
                         Specifies the log level (default: info):
                         (Critical messages are always displayed)
+
                         info: Only show information messages, that might be
                               useful or not.
                         err:  Only show error messages.
@@ -139,6 +144,12 @@ while [[ $# -gt 0 ]]; do
 			export DAEM_DAEMONIZE="1"
 			shift
 			;;
+		-f|--load-libs)
+			check_for_null "$2"
+			export DAEM_LOAD_FILE="$2"
+			shift
+			shift
+			;;
 		-o|--log-file)
 			check_for_null "$2"
 			export DAEM_LOG_FILE="$2"
@@ -161,7 +172,7 @@ while [[ $# -gt 0 ]]; do
 		*)
 			ARGV+=("$1")
 			shift
-		;;
+			;;
 	esac
 done
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # MIT License
 #
 # Copyright (c) 2022 Davidson Francis <davidsondfgl@gmail.com>
@@ -20,29 +22,53 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# Paths
-INCLUDE = -I.
+#
+# Grab all the libraries opened via 'dlopen' and save to a given file
+#
 
-# Flags
-CC     ?= gcc
-CFLAGS += -fPIC -O0 $(INCLUDE) -g
-LDFLAGS = -shared
-LDLIBS  = -ldl
+SCRIPT_NAME="$0"
 
-OBJ = daem.o ipc.o util.o log.o load.o
+getlibs() {
+	OUTPUT_FILE="$1"
+	shift # '$@' should contain only the program+args
 
-all: daem.so client
+	TMPFOLDER="../.dump_$(date +%s%N)"
+	mkdir $TMPFOLDER
 
-daem.so: $(OBJ)
-	$(CC) $^ $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+	strace -ff -o "$TMPFOLDER/dump_$1" "$@"
 
-client.o: client.c
-	$(CC) $^ -c
-client: client.o
-	$(CC) $^ -o $@
+	#
+	# This regex is an approximation of what a dlopen
+	# might be: since dlopen is not a system call, we
+	# can only try to 'guess' when a dlopen happens by
+	# other syscalls.
+	#
+	# In *my* environment, it looks like this:
+	# openat(AT_FDCWD, "/folder/foo.so", O_RDONLY|O_CLOEXEC) = positive_number
+	#
+	grep -Pr \
+		"openat\(AT_FDCWD, \".+\.so(\.[0-9]+)*\", O_RDONLY\|O_CLOEXEC\) = [^-]" "$TMPFOLDER" \
+		| cut -d'"' -f2 \
+		| sort -u > $OUTPUT_FILE
 
-clean:
-	$(RM) $(OBJ)
-	$(RM) client.o
-	$(RM) $(CURDIR)/daem.so
-	$(RM) $(CURDIR)/client
+	rm -rf $TMPFOLDER
+}
+
+usage() {
+	printf "Usage: $SCRIPT_NAME -o output.txt <program-name-or-path> "
+	printf "<program parameters>\n"
+	exit 1
+}
+
+if [ "$#" -lt 3 ]; then
+	echo "You should pass at least 3 parameters!"
+	usage
+fi
+
+# Validate if '-o' was passed
+if [ "$1" != "-o" ]; then
+	echo "Parameter ($1) is not output file (-o)!"
+	usage
+fi
+
+getlibs "${@:2}"

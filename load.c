@@ -22,21 +22,49 @@
  * SOFTWARE.
  */
 
-#ifndef DAEM_H
-#define DAEM_H
+#define _POSIX_C_SOURCE 200809L
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
 
-	/* Our global arguments struct. */
-	struct args
+#include "log.h"
+
+/**
+ *
+ */
+int load_file(const char *file)
+{
+	ssize_t lbytes;
+	size_t  rbytes;
+	char   *line;
+	FILE   *f;
+
+	f = fopen(file, "r");
+	if (!f)
+		die("Unable to read file: %s\n", file);
+
+	line   = NULL;
+	lbytes = 0;
+	rbytes = 0;
+	while ((lbytes = getline(&line, &rbytes, f)) != -1)
 	{
-		int   port;
-		int   daemonize;
-		char *pid_path;
-		/* Log stuff. */
-		int   log_lvl;
-		char *log_file;
-		int   log_fd;
-		/* Load file. */
-		char *load_file;
-	};
+		line[lbytes - 1] = '\0';
 
-#endif /* DAEM_H */
+		/*
+		 * Yes... I am purposely ignoring the return of 'dlopen':
+		 * if it failed, there is nothing that can be done, if it
+		 * succeeded, there is no need to save the handler either,
+		 * since it is not known how long the library should stay
+		 * available in memory.
+		 *
+		 * Therefore, everything is expected to die along with the
+		 * process.
+		 */
+		if (!dlopen(line, RTLD_NOW))
+			log_info("Unable to dlopen lib: %s\nr: %s\n\n", line,
+				dlerror());
+	}
+	free(line);
+	fclose(f);
+	return (0);
+}

@@ -22,21 +22,9 @@
  * SOFTWARE.
  */
 
-#ifndef DAEM_H
-#define DAEM_H
+#ifndef LOAD_H
+#define LOAD_H
 
-	/* Our global arguments struct. */
-	struct args
-	{
-		int   port;
-		int   daemonize;
-		char *pid_path;
-		/* Log stuff. */
-		int   log_lvl;
-		char *log_file;
-		int   log_fd;
-		/* Load file. */
-		char *load_file;
-	};
+	extern int load_file(const char *file);
 
-#endif /* DAEM_H */
+#endif /* LOAD_H */

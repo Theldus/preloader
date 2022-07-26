@@ -36,6 +36,7 @@
 #include "ipc.h"
 #include "log.h"
 #include "util.h"
+#include "load.h"
 
 #ifndef PID_PATH
 #define PID_PATH "/tmp"
@@ -52,11 +53,12 @@ static uintptr_t addr_start;
  *
  */
 struct args args = {
-	.port     = SV_DEFAULT_PORT,
-	.pid_path = PID_PATH,
-	.log_lvl  = LOG_LVL_INFO,
-	.log_file = NULL,
-	.log_fd   = STDERR_FILENO
+	.port      = SV_DEFAULT_PORT,
+	.pid_path  = PID_PATH,
+	.log_lvl   = LOG_LVL_INFO,
+	.log_file  = NULL,
+	.log_fd    = STDERR_FILENO,
+	.load_file = NULL,
 };
 
 /**
@@ -79,6 +81,8 @@ static char* daemon_main(int *argc)
 
 		if (fork() == 0)
 		{
+			unsetenv("LD_BIND_NOW");
+
 			/* Close log file, because we do not need to
 			 * inherit it. */
 			log_close();
@@ -318,6 +322,10 @@ static void parse_args(void)
 		args.daemonize = 1;
 		args.log_fd = -1;
 	}
+
+	/* Check if should load a given file too. */
+	if ((env = getenv("DAEM_LOAD_FILE")) != NULL)
+		args.load_file = strdup(env);
 }
 
 /**
@@ -370,6 +378,10 @@ void __attribute__ ((constructor)) my_init(void)
 
 	/* Setup signals. */
 	signal(SIGCHLD, SIG_IGN);
+
+	/* Read a load file, if specified. */
+	if (args.load_file)
+		load_file(args.load_file);
 
 	/* Read our '_start' address. */
 	if (!(addr_start = getauxval(AT_ENTRY)))
