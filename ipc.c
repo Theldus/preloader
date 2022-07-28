@@ -139,7 +139,7 @@ int ipc_init(int port)
  */
 void ipc_finish(void)
 {
-
+	close(sv_fd);
 }
 
 /**

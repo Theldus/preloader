@@ -83,14 +83,21 @@ static char* daemon_main(int *argc)
 		{
 			unsetenv("LD_BIND_NOW");
 
+			/* Close server listening socket on client. */
+			ipc_finish();
+
 			/* Close log file, because we do not need to
 			 * inherit it. */
 			log_close();
 
 			/* Redirect stdout and stderr to the socket. */
+			dup2(conn_fd, STDIN_FILENO);
 			dup2(conn_fd, STDOUT_FILENO);
 			dup2(conn_fd, STDERR_FILENO);
 			close(conn_fd);
+
+			/* Re-enable line-buffering again for stdout. */
+			setvbuf(stdout, NULL, _IOLBF, 0);
 
 			/* Set the current directory. */
 			chdir(cwd_argv);

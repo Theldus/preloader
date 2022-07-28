@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -245,9 +246,22 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 /**
  *
  */
+static inline int event_error(int events)
+{
+	if ((events & POLLHUP) ||
+		(events & POLLERR) ||
+		(events & POLLNVAL))
+		return (1);
+	return (0);
+}
+
+/**
+ *
+ */
 int main(int argc, char **argv)
 {
 	struct sockaddr_in sock_addr;
+	struct pollfd fds[2];
 	struct run_data rd;
 	char buff[1024];
 	char **new_argv;
@@ -286,10 +300,70 @@ int main(int argc, char **argv)
 	if (send_all(sock, rd.cwd_argv, amnt, 0) < 0)
 		die("Cant send cwd_argv, aborting!...\n");
 
-	/* While connected and there is something to print. */
-	memset(buff, 0, sizeof buff);
-	while ((amnt = recv(sock, buff, sizeof buff, 0)) > 0)
-		write(STDOUT_FILENO, buff, amnt);
+	/*
+	 * Send from sock & stdin to mimick a regular program.
+	 *
+	 * This approach concentrates stdout/stderr/stdin all in a
+	 * single socket/connection, which means that:
+	 *
+	 * a) Cannot separate stdout from stderr... all messages
+	 * always go to stdout.
+	 *
+	 * b) Once stdin reaches EOF, the client closes the connection
+	 * and terminates. If your program prints stuff to stdout/stderr
+	 * _after_ reading from stdin (reaching EOF), the messages that
+	 * follow will not show up, as the connection to the socket will
+	 * be closed.
+	 *
+	 * That is, with a single connection, it is not possible to
+	 * signal EOF on stdin _and_ keep stdout/stderr working, since
+	 * the EOF of stdin is the 'EOF' of the socket.
+	 *
+	 *
+	 * In addition, another limitation present in the client concerns
+	 * the return value:
+	 *
+	 * Since the server does not wait for the termination of the child
+	 * process, it becomes impossible to know the return value.
+	 * Even if the server knew the return value, it would have to
+	 * inform the client somehow, which with just a connection to
+	 * stdout/stderr/stdin is quite unlikely.
+	 *
+	 * -----
+	 *
+	 * Maybe TODO: Add 3 or 4 connections to the client, one for stdin,
+	 * one for stdout and one for stderr... maybe a 4th connection
+	 * for a server-client communication, which makes it possible to
+	 * know the return value eg. Think about the overhead this could
+	 * add to the code.
+	 *
+	 */
+	fds[0].fd     = sock;
+	fds[0].events = POLLIN;
+	fds[1].fd     = STDIN_FILENO;
+	fds[1].events = POLLIN;
+
+	while (poll(fds, 2, -1) != -1)
+	{
+		if (event_error(fds[0].revents) || event_error(fds[1].revents))
+			break;
+
+		if (fds[0].revents & POLLIN)
+		{
+			if ((amnt = recv(sock, buff, sizeof buff, 0)) <= 0)
+				break;
+			if (write(STDOUT_FILENO, buff, amnt) != amnt)
+				break;
+		}
+
+		if (fds[1].revents & POLLIN)
+		{
+			if ((amnt = read(STDIN_FILENO, buff, sizeof buff)) <= 0)
+				break;
+			if (write(sock, buff, amnt) != amnt)
+				break;
+		}
+	}
 
 	close(sock);
 	free(rd.cwd_argv);
