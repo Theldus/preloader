@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -32,6 +33,11 @@
 #include "log.h"
 
 static int sv_fd;
+static int stdout_fd;
+static int stderr_fd;
+static int stdin_fd;
+
+#define TIMEOUT_MS 128
 
 /**
  *
@@ -96,24 +102,20 @@ static inline int next_byte(struct net_data *nd)
 	return (nd->buff[nd->cur_pos++]);
 }
 
-/* ==================================================================
- * Public IPC routines
- * ==================================================================*/
-
 /**
  *
  */
-int ipc_init(int port)
+static void listen_port(uint16_t port, int *fd)
 {
 	struct sockaddr_in server;
 	int reuse;
 
-	sv_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sv_fd < 0)
+	*fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (*fd < 0)
 		die("Cant start IPC!\n");
 
 	reuse = 1;
-	if (setsockopt(sv_fd, SOL_SOCKET, SO_REUSEADDR,
+	if (setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR,
 		(const char *)&reuse, sizeof(reuse)) < 0)
 		die("setsockopt(SO_REUSEADDR) failed!\n");
 
@@ -124,13 +126,61 @@ int ipc_init(int port)
 	server.sin_port = htons(port);
 
 	/* Bind. */
-	if (bind(sv_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
+	if (bind(*fd, (struct sockaddr *)&server, sizeof(server)) < 0)
 		die("Bind failed\n");
 
 	/* Listen. */
-	if (listen(sv_fd, SV_MAX_CLIENTS) < 0)
+	if (listen(*fd, SV_MAX_CLIENTS) < 0)
 		die("Unable to listen at port %d\n", port);
+}
 
+/**
+ *
+ */
+static inline int event_error(struct pollfd *p)
+{
+	int ev = p->events;
+	if ((ev & POLLHUP) ||
+		(ev & POLLERR) ||
+		(ev & POLLNVAL))
+		return (1);
+	return (0);
+}
+
+/**
+ *
+ */
+static int accept_timeout(int fd, int timeout_ms)
+{
+	struct sockaddr_in cli;
+	struct pollfd pfd;
+	size_t len;
+	int ret;
+
+	pfd.fd = fd;
+	pfd.events = POLLIN;
+
+	len = sizeof(struct sockaddr_in);
+
+	if (poll(&pfd, 1, timeout_ms) <= 0 || event_error(&pfd))
+		return (-1);
+
+	return accept(fd, (struct sockaddr *)&cli, (socklen_t *)&len);
+}
+
+/* ==================================================================
+ * Public IPC routines
+ * ==================================================================*/
+
+/**
+ *
+ */
+int ipc_init(int port)
+{
+	listen_port(port + 0, &sv_fd);
+	listen_port(port + 1, &stdout_fd);
+	listen_port(port + 2, &stderr_fd);
+	listen_port(port + 3, &stdin_fd);
 	return (0);
 }
 
@@ -158,6 +208,21 @@ int ipc_wait_conn(void)
 		die("Failed while accepting connections, aborting...\n");
 
 	return (cli_fd);
+}
+
+/**
+ *
+ */
+int ipc_wait_fds(int *out, int *err, int *in)
+{
+	/* Accept stdout, stderr and stdin with TIMEOUT_MS ms. */
+	if ((*out = accept_timeout(stdout_fd, TIMEOUT_MS)) < 0)
+		return (-1);
+	if ((*err = accept_timeout(stderr_fd, TIMEOUT_MS)) < 0)
+		return (-1);
+	if ((*in  = accept_timeout(stdin_fd,  TIMEOUT_MS)) < 0)
+		return (-1);
+	return (0);
 }
 
 /**

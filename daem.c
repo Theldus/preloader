@@ -66,7 +66,10 @@ struct args args = {
  */
 static char* daemon_main(int *argc)
 {
-	char *cwd_argv;
+	char *cwd_argv = NULL;
+	int stdout_fd;
+	int stderr_fd;
+	int stdin_fd;
 	int conn_fd;
 
 	ipc_init(args.port);
@@ -78,6 +81,12 @@ static char* daemon_main(int *argc)
 
 		if (!cwd_argv)
 			die("unable to receive message\n");
+
+		if (ipc_wait_fds(&stdout_fd, &stderr_fd, &stdin_fd) < 0)
+		{
+			log_info("Error while waiting for fds, skipping...\n");
+			goto again;
+		}
 
 		if (fork() == 0)
 		{
@@ -91,9 +100,12 @@ static char* daemon_main(int *argc)
 			log_close();
 
 			/* Redirect stdout and stderr to the socket. */
-			dup2(conn_fd, STDIN_FILENO);
-			dup2(conn_fd, STDOUT_FILENO);
-			dup2(conn_fd, STDERR_FILENO);
+			dup2(stdin_fd,  STDIN_FILENO);
+			dup2(stdout_fd, STDOUT_FILENO);
+			dup2(stderr_fd, STDERR_FILENO);
+			close(stdin_fd);
+			close(stdout_fd);
+			close(stderr_fd);
 			close(conn_fd);
 
 			/* Re-enable line-buffering again for stdout. */
@@ -107,6 +119,10 @@ static char* daemon_main(int *argc)
 			return (cwd_argv);
 		}
 
+	again:
+		close(stdin_fd);
+		close(stdout_fd);
+		close(stderr_fd);
 		close(conn_fd);
 		free(cwd_argv);
 	}

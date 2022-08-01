@@ -31,6 +31,7 @@
 	extern int ipc_init(int port);
 	extern void ipc_finish(void);
 	extern int ipc_wait_conn(void);
+	extern int ipc_wait_fds(int *stdout, int *stderr, int *stdin);
 	extern char* ipc_recv_msg(int conn, int *argc_p);
 
 #endif /* IPC_H */

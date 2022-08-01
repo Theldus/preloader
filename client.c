@@ -148,7 +148,7 @@ static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
  *
  * @return Returns 0 if success and a negative number otherwise.
  */
-int str2int(int *out, const char *s)
+static int str2int(int *out, const char *s)
 {
 	char *end;
 	if (s[0] == '\0' || isspace(s[0]))
@@ -246,12 +246,80 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 /**
  *
  */
-static inline int event_error(int events)
+static inline int events_error(struct pollfd *p, int evs)
 {
-	if ((events & POLLHUP) ||
-		(events & POLLERR) ||
-		(events & POLLNVAL))
-		return (1);
+	int ev;
+	int i;
+
+	for (i = 0; i < evs; i++, p++)
+	{
+		ev = p->events;
+		if ((ev & POLLHUP) ||
+			(ev & POLLERR) ||
+			(ev & POLLNVAL))
+		{
+			return (1);
+		}
+	}
+	return (0);
+}
+
+/**
+ *
+ */
+static int do_connect(uint16_t port, int *sock)
+{
+	struct sockaddr_in sock_addr;
+
+	/* Create socket. */
+	*sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (*sock < 0)
+		die("Unable to create a socket!\n");
+
+	memset((void*)&sock_addr, 0, sizeof(sock_addr));
+	sock_addr.sin_family = AF_INET;
+	sock_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	sock_addr.sin_port = htons(port);
+
+	return connect(*sock, (struct sockaddr *)&sock_addr,
+		sizeof(sock_addr));
+}
+
+/**
+ *
+ */
+static int handle_poll_event(struct pollfd *pfd, int out_fd,
+	int is_sock, int *is_eof)
+{
+	static char buff[1024];
+	ssize_t amnt;
+	int cfd; /* close fd. */
+
+	amnt    = read(pfd->fd, buff, sizeof buff);
+	*is_eof = 0;
+
+	/* Check if EOF or error... if so, close the file descriptor and
+	 * the connection, if fd belongs to a socket. */
+	if (amnt <= 0)
+	{
+		/* If 'is_sock' is true, our input fd is a socket, otherwise,
+		 * output fd is a socket. */
+		cfd = (is_sock ? pfd->fd : out_fd);
+		shutdown(cfd, SHUT_RDWR);
+		close(cfd);
+
+		pfd->fd = -1;
+
+		/* Check if EOF> */
+		if (!amnt)
+			*is_eof = 1;
+
+		return (-1);
+	}
+
+	if (write(out_fd, buff, amnt) != amnt)
+		return (-1);
+
 	return (0);
 }
 
@@ -260,15 +328,19 @@ static inline int event_error(int events)
  */
 int main(int argc, char **argv)
 {
-	struct sockaddr_in sock_addr;
-	struct pollfd fds[2];
+	struct pollfd fds[3];
 	struct run_data rd;
 	char buff[1024];
 	char **new_argv;
 	int new_argc;
 	ssize_t amnt;
-	int sock;
 	int port;
+
+	int sock;
+	int sock_stdout;
+	int sock_stderr;
+	int sock_stdin;
+	int is_eof;
 
 	/* Parse and validate arguments. */
 	new_argc = argc;
@@ -278,19 +350,9 @@ int main(int argc, char **argv)
 	if ((amnt = prepare_data(&rd, new_argc, new_argv)) < 0)
 		die("Unable to prepare data to be sent!\n");
 
-	/* Create socket. */
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock < 0)
-		die("Unable to create a socket!\n");
-
-	memset((void*)&sock_addr, 0, sizeof(sock_addr));
-	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	sock_addr.sin_port = htons(port);
-
-	/* Connect. */
-	if (connect(sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) < 0)
-		die("Unable to connect to localhost on port %d!\n", port);
+	/* Connect to server port. */
+	if (do_connect(port, &sock) < 0)
+		die("Unable to connect on sv port %d!\n", port);
 
 	/* Send argc, amt_bytes, cwd and argv. */
 	if (send_all(sock, rd.argc, sizeof rd.argc, 0) < 0)
@@ -300,72 +362,56 @@ int main(int argc, char **argv)
 	if (send_all(sock, rd.cwd_argv, amnt, 0) < 0)
 		die("Cant send cwd_argv, aborting!...\n");
 
+	/* Now connect to "I/O" ports. */
+	if (do_connect(port + 1, &sock_stdout) < 0)
+		die("Unable to connect on stdout port %d!\n", port + 1);
+	if (do_connect(port + 2, &sock_stderr) < 0)
+		die("Unable to connect on stderr port %d!\n", port + 2);
+	if (do_connect(port + 3, &sock_stdin)  < 0)
+		die("Unable to connect on stdin port %d!\n",  port + 3);
+
 	/*
-	 * Send from sock & stdin to mimick a regular program.
-	 *
-	 * This approach concentrates stdout/stderr/stdin all in a
-	 * single socket/connection, which means that:
-	 *
-	 * a) Cannot separate stdout from stderr... all messages
-	 * always go to stdout.
-	 *
-	 * b) Once stdin reaches EOF, the client closes the connection
-	 * and terminates. If your program prints stuff to stdout/stderr
-	 * _after_ reading from stdin (reaching EOF), the messages that
-	 * follow will not show up, as the connection to the socket will
-	 * be closed.
-	 *
-	 * That is, with a single connection, it is not possible to
-	 * signal EOF on stdin _and_ keep stdout/stderr working, since
-	 * the EOF of stdin is the 'EOF' of the socket.
-	 *
-	 *
-	 * In addition, another limitation present in the client concerns
-	 * the return value:
-	 *
-	 * Since the server does not wait for the termination of the child
-	 * process, it becomes impossible to know the return value.
-	 * Even if the server knew the return value, it would have to
-	 * inform the client somehow, which with just a connection to
-	 * stdout/stderr/stdin is quite unlikely.
-	 *
-	 * -----
-	 *
-	 * Maybe TODO: Add 3 or 4 connections to the client, one for stdin,
-	 * one for stdout and one for stderr... maybe a 4th connection
-	 * for a server-client communication, which makes it possible to
-	 * know the return value eg. Think about the overhead this could
-	 * add to the code.
 	 *
 	 */
-	fds[0].fd     = sock;
-	fds[0].events = POLLIN;
-	fds[1].fd     = STDIN_FILENO;
-	fds[1].events = POLLIN;
+	fds[0].fd = sock_stdout;  fds[0].events = POLLIN;
+	fds[1].fd = sock_stderr;  fds[1].events = POLLIN;
+	fds[2].fd = STDIN_FILENO; fds[2].events = POLLIN;
 
-	while (poll(fds, 2, -1) != -1)
+	while (poll(fds, 3, -1) != -1)
 	{
-		if (event_error(fds[0].revents) || event_error(fds[1].revents))
+		if (events_error(fds, 3))
 			break;
 
 		if (fds[0].revents & POLLIN)
-		{
-			if ((amnt = recv(sock, buff, sizeof buff, 0)) <= 0)
+			if (handle_poll_event(&fds[0], STDOUT_FILENO, 1, &is_eof) < 0)
 				break;
-			if (write(STDOUT_FILENO, buff, amnt) != amnt)
-				break;
-		}
 
 		if (fds[1].revents & POLLIN)
+			if (handle_poll_event(&fds[1], STDERR_FILENO, 1, &is_eof) < 0)
+				break;
+
+		if (fds[2].revents & POLLIN)
 		{
-			if ((amnt = read(STDIN_FILENO, buff, sizeof buff)) <= 0)
+			if (handle_poll_event(&fds[2], sock_stdin, 0, &is_eof) < 0
+				&& !is_eof)
+			{
 				break;
-			if (write(sock, buff, amnt) != amnt)
-				break;
+			}
 		}
 	}
 
+	/* Wait for return value, maybe send int32_t.... */
+	/* signals. */
+
 	close(sock);
+
+	if (fds[0].fd >= 0)
+		close(sock_stdout);
+	if (fds[1].fd >= 0)
+		close(sock_stderr);
+	if (fds[2].fd >= 0)
+		close(sock_stdin);
+
 	free(rd.cwd_argv);
 	return (0);
 }
