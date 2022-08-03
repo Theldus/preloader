@@ -117,10 +117,16 @@ static char* daemon_main(int *argc)
 
 			/* Set the current directory. */
 			chdir(cwd_argv);
+
+			/* Restore default signal handler. */
+			signal(SIGTERM, SIG_DFL);
 			return (cwd_argv);
 		}
 		else
 			reaper_add_child(pid, conn_fd);
+
+		/* Send child PID. */
+		ipc_send_int32((int32_t)pid, conn_fd);
 
 	again:
 		/* Keep conn_fd as our reaper will close the connection. */

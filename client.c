@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <poll.h>
 #include <sys/types.h>
@@ -43,6 +44,9 @@
 	} while (0)
 
 #define SV_DEFAULT_PORT 3636
+
+/* Process PID. */
+static pid_t process_pid;
 
 /**
  * @brief Given a 32-bit message, encodes the content
@@ -343,6 +347,15 @@ static int handle_poll_event(struct pollfd *pfd, int out_fd,
 /**
  *
  */
+static void sig_handler(int sig)
+{
+	if (process_pid)
+		kill(process_pid, sig);
+}
+
+/**
+ *
+ */
 int main(int argc, char **argv)
 {
 	struct pollfd fds[3];
@@ -361,6 +374,9 @@ int main(int argc, char **argv)
 	int is_eof;
 
 	ret = 42;
+
+	signal(SIGINT,  sig_handler);
+	signal(SIGTERM, sig_handler);
 
 	/* Parse and validate arguments. */
 	new_argc = argc;
@@ -389,6 +405,13 @@ int main(int argc, char **argv)
 		die("Unable to connect on stderr port %d!\n", port + 2);
 	if (do_connect(port + 3, &sock_stdin)  < 0)
 		die("Unable to connect on stdin port %d!\n",  port + 3);
+
+	/* Wait for process PID. */
+	if ((amnt = recv(sock, ret_buff, 4, 0)) != 4)
+		goto out;
+
+	ret = msg_to_int32(ret_buff);
+	process_pid = ret;
 
 	/*
 	 *
@@ -421,14 +444,12 @@ int main(int argc, char **argv)
 	}
 
 	/* Wait for return value. */
-	if ((amnt = recv(sock, ret_buff, sizeof(ret_buff), 0)) != sizeof(ret_buff))
+	if ((amnt = recv(sock, ret_buff, 4, 0)) != 4)
 		goto out;
 
 	ret = msg_to_int32(ret_buff);
 
-	/* signals. */
 out:
-
 	close(sock);
 
 	if (fds[0].fd >= 0)
