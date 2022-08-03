@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -71,6 +72,22 @@ static inline int32_t msg_to_int32(uint8_t *msg)
 	msg_int = (msg[3] << 0) | (msg[2] << 8) | (msg[1] << 16) |
 		(msg[0] << 24);
 	return (msg_int);
+}
+
+/**
+ * @brief Given a 32-bit message, encodes the content
+ * to be sent.
+ *
+ * @param msg
+ * @param msg Target buffer.
+ */
+static inline void int32_to_msg(int32_t msg, uint8_t *msg_buff)
+{
+	/* Encodes as big-endian. */
+	msg_buff[0] = (msg >> 24);
+	msg_buff[1] = (msg >> 16);
+	msg_buff[2] = (msg >>  8);
+	msg_buff[3] = (msg >>  0);
 }
 
 /**
@@ -295,4 +312,29 @@ char *ipc_recv_msg(int conn, int *argc_p)
 err0:
 	free(cwd_argv);
 	return (NULL);
+}
+
+/**
+ *
+ * @return Returns 1 if success, 0 otherwise.
+ */
+int ipc_send_int32(int32_t value, int fd)
+{
+	uint8_t buff[4];
+	int32_to_msg(value, buff);
+	return (send(fd, buff, sizeof buff, 0) == sizeof buff);
+}
+
+/**
+ *
+ */
+void ipc_close(int num, ...)
+{
+	int i;
+	va_list ap;
+
+	va_start(ap, num);
+	for (i = 0; i < num; i++)
+		close(va_arg(ap, int));
+	va_end(ap);
 }

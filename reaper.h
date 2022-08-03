@@ -22,18 +22,12 @@
  * SOFTWARE.
  */
 
-#ifndef IPC_H
-#define IPC_H
+#ifndef REAPER_H
+#define REAPER_H
 
-	#define SV_DEFAULT_PORT 3636
-	#define SV_MAX_CLIENTS    16
+	/* External functions. */
+	extern void reaper_init(void);
+	extern void reaper_finish(void);
+	extern void reaper_add_child(pid_t pid, int fd);
 
-	extern int ipc_init(int port);
-	extern void ipc_finish(void);
-	extern int ipc_wait_conn(void);
-	extern int ipc_wait_fds(int *stdout, int *stderr, int *stdin);
-	extern char* ipc_recv_msg(int conn, int *argc_p);
-	extern int ipc_send_int32(int32_t value, int fd);
-	extern void ipc_close(int num, ...);
-
-#endif /* IPC_H */
+#endif /* REAPER_H */

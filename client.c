@@ -61,6 +61,23 @@ static inline void int32_to_msg(int32_t msg, uint8_t *msg_buff)
 }
 
 /**
+ * @brief Given a 32-bit message, decodes the content
+ * as a int32_t number.
+ *
+ * @param msg Content to be decoded.
+ *
+ * @return Returns message as uint32_t.
+ */
+static inline int32_t msg_to_int32(uint8_t *msg)
+{
+	int32_t msg_int;
+	/* Decodes as big-endian. */
+	msg_int = (msg[3] << 0) | (msg[2] << 8) | (msg[1] << 16) |
+		(msg[0] << 24);
+	return (msg_int);
+}
+
+/**
  *
  */
 static ssize_t send_all(
@@ -330,10 +347,11 @@ int main(int argc, char **argv)
 {
 	struct pollfd fds[3];
 	struct run_data rd;
-	char buff[1024];
+	char ret_buff[4];
 	char **new_argv;
 	int new_argc;
 	ssize_t amnt;
+	int32_t ret;
 	int port;
 
 	int sock;
@@ -341,6 +359,8 @@ int main(int argc, char **argv)
 	int sock_stderr;
 	int sock_stdin;
 	int is_eof;
+
+	ret = 42;
 
 	/* Parse and validate arguments. */
 	new_argc = argc;
@@ -400,8 +420,14 @@ int main(int argc, char **argv)
 		}
 	}
 
-	/* Wait for return value, maybe send int32_t.... */
+	/* Wait for return value. */
+	if ((amnt = recv(sock, ret_buff, sizeof(ret_buff), 0)) != sizeof(ret_buff))
+		goto out;
+
+	ret = msg_to_int32(ret_buff);
+
 	/* signals. */
+out:
 
 	close(sock);
 
@@ -413,5 +439,5 @@ int main(int argc, char **argv)
 		close(sock_stdin);
 
 	free(rd.cwd_argv);
-	return (0);
+	return ((int)ret);
 }

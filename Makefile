@@ -27,9 +27,9 @@ INCLUDE = -I.
 CC     ?= gcc
 CFLAGS += -fPIC -O0 $(INCLUDE) -g
 LDFLAGS = -shared
-LDLIBS  = -ldl
+LDLIBS  = -ldl -pthread
 
-OBJ = daem.o ipc.o util.o log.o load.o
+OBJ = daem.o ipc.o util.o log.o load.o reaper.o
 
 all: daem.so client
 

@@ -37,6 +37,7 @@
 #include "log.h"
 #include "util.h"
 #include "load.h"
+#include "reaper.h"
 
 #ifndef PID_PATH
 #define PID_PATH "/tmp"
@@ -71,8 +72,10 @@ static char* daemon_main(int *argc)
 	int stderr_fd;
 	int stdin_fd;
 	int conn_fd;
+	pid_t pid;
 
 	ipc_init(args.port);
+	reaper_init();
 
 	while (1)
 	{
@@ -88,7 +91,8 @@ static char* daemon_main(int *argc)
 			goto again;
 		}
 
-		if (fork() == 0)
+		/* If child. */
+		if ((pid = fork()) == 0)
 		{
 			unsetenv("LD_BIND_NOW");
 
@@ -99,31 +103,28 @@ static char* daemon_main(int *argc)
 			 * inherit it. */
 			log_close();
 
+			/* Deallocates reaper data structures. */
+			reaper_finish();
+
 			/* Redirect stdout and stderr to the socket. */
 			dup2(stdin_fd,  STDIN_FILENO);
 			dup2(stdout_fd, STDOUT_FILENO);
 			dup2(stderr_fd, STDERR_FILENO);
-			close(stdin_fd);
-			close(stdout_fd);
-			close(stderr_fd);
-			close(conn_fd);
+			ipc_close(4, stdin_fd, stdout_fd, stderr_fd, conn_fd);
 
 			/* Re-enable line-buffering again for stdout. */
 			setvbuf(stdout, NULL, _IOLBF, 0);
 
 			/* Set the current directory. */
 			chdir(cwd_argv);
-
-			/* Restore signal for SIGCHLD here. */
-			signal(SIGCHLD, SIG_DFL);
 			return (cwd_argv);
 		}
+		else
+			reaper_add_child(pid, conn_fd);
 
 	again:
-		close(stdin_fd);
-		close(stdout_fd);
-		close(stderr_fd);
-		close(conn_fd);
+		/* Keep conn_fd as our reaper will close the connection. */
+		ipc_close(3, stdin_fd, stdout_fd, stderr_fd);
 		free(cwd_argv);
 	}
 
@@ -354,6 +355,22 @@ static void parse_args(void)
 /**
  *
  */
+static void sig_handler(int sig)
+{
+	((void)sig);
+	/*
+	 * It sounds stupid (and maybe it is) to handle SIGTERM
+	 * just once to reset the signal immediately... but it
+	 * was the way I found to kill this process and the
+	 * dummy process peacefully.
+	 */
+	signal(SIGTERM, SIG_DFL);
+	kill(0, SIGTERM);
+}
+
+/**
+ *
+ */
 static void daemonize(void)
 {
 	int fd;
@@ -393,6 +410,11 @@ void __attribute__ ((constructor)) my_init(void)
 	if (args.daemonize)
 		daemonize();
 
+	/* Spawns a dummy process so our reaper always have some
+	 * child to wait for. */
+	if (!fork())
+		pause();
+
 	/* PID file. */
 	if (create_pid(PID_PATH, args.port) < 0)
 		die("Unable to create pid file, aborting...\n");
@@ -400,7 +422,7 @@ void __attribute__ ((constructor)) my_init(void)
 	log_info("Initializing...\n");
 
 	/* Setup signals. */
-	signal(SIGCHLD, SIG_IGN);
+	signal(SIGTERM, sig_handler);
 
 	/* Read a load file, if specified. */
 	if (args.load_file)
