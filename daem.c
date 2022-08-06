@@ -65,6 +65,41 @@ struct args args = {
 /**
  *
  */
+static char* setup_child(int conn_fd, int stdout_fd, int stderr_fd,
+	int stdin_fd, char *cwd_argv)
+{
+	unsetenv("LD_BIND_NOW");
+
+	/* Close server listening socket on client. */
+	ipc_finish();
+
+	/* Close log file, because we do not need to
+	 * inherit it. */
+	log_close();
+
+	/* Deallocates reaper data structures. */
+	reaper_finish();
+
+	/* Redirect stdout and stderr to the socket. */
+	dup2(stdin_fd,  STDIN_FILENO);
+	dup2(stdout_fd, STDOUT_FILENO);
+	dup2(stderr_fd, STDERR_FILENO);
+	ipc_close(4, stdin_fd, stdout_fd, stderr_fd, conn_fd);
+
+	/* Re-enable line-buffering again for stdout. */
+	setvbuf(stdout, NULL, _IOLBF, 0);
+
+	/* Set the current directory. */
+	chdir(cwd_argv);
+
+	/* Restore default signal handler. */
+	signal(SIGTERM, SIG_DFL);
+	return (cwd_argv);
+}
+
+/**
+ *
+ */
 static char* daemon_main(int *argc)
 {
 	char *cwd_argv = NULL;
@@ -93,35 +128,8 @@ static char* daemon_main(int *argc)
 
 		/* If child. */
 		if ((pid = fork()) == 0)
-		{
-			unsetenv("LD_BIND_NOW");
-
-			/* Close server listening socket on client. */
-			ipc_finish();
-
-			/* Close log file, because we do not need to
-			 * inherit it. */
-			log_close();
-
-			/* Deallocates reaper data structures. */
-			reaper_finish();
-
-			/* Redirect stdout and stderr to the socket. */
-			dup2(stdin_fd,  STDIN_FILENO);
-			dup2(stdout_fd, STDOUT_FILENO);
-			dup2(stderr_fd, STDERR_FILENO);
-			ipc_close(4, stdin_fd, stdout_fd, stderr_fd, conn_fd);
-
-			/* Re-enable line-buffering again for stdout. */
-			setvbuf(stdout, NULL, _IOLBF, 0);
-
-			/* Set the current directory. */
-			chdir(cwd_argv);
-
-			/* Restore default signal handler. */
-			signal(SIGTERM, SIG_DFL);
-			return (cwd_argv);
-		}
+			return setup_child(conn_fd, stdout_fd, stderr_fd,
+				stdin_fd, cwd_argv);
 		else
 			reaper_add_child(pid, conn_fd);
 

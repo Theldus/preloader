@@ -30,7 +30,7 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#include <poll.h>
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -47,6 +47,9 @@
 
 /* Process PID. */
 static pid_t process_pid;
+
+/* epoll fd. */
+static int epfd;
 
 /**
  * @brief Given a 32-bit message, encodes the content
@@ -267,27 +270,6 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 /**
  *
  */
-static inline int events_error(struct pollfd *p, int evs)
-{
-	int ev;
-	int i;
-
-	for (i = 0; i < evs; i++, p++)
-	{
-		ev = p->events;
-		if ((ev & POLLHUP) ||
-			(ev & POLLERR) ||
-			(ev & POLLNVAL))
-		{
-			return (1);
-		}
-	}
-	return (0);
-}
-
-/**
- *
- */
 static int do_connect(uint16_t port, int *sock)
 {
 	struct sockaddr_in sock_addr;
@@ -309,14 +291,28 @@ static int do_connect(uint16_t port, int *sock)
 /**
  *
  */
-static int handle_poll_event(struct pollfd *pfd, int out_fd,
+static inline int epoll_event_error(uint32_t evt)
+{
+	if ((evt & EPOLLHUP) ||
+		(evt & EPOLLERR) ||
+		(evt & EPOLLPRI))
+	{
+		return (1);
+	}
+	return (0);
+}
+
+/**
+ *
+ */
+static int handle_epoll_event(struct epoll_event *ev, int out_fd,
 	int is_sock, int *is_eof)
 {
 	static char buff[1024];
 	ssize_t amnt;
 	int cfd; /* close fd. */
 
-	amnt    = read(pfd->fd, buff, sizeof buff);
+	amnt    = read(ev->data.fd, buff, sizeof buff);
 	*is_eof = 0;
 
 	/* Check if EOF or error... if so, close the file descriptor and
@@ -325,16 +321,15 @@ static int handle_poll_event(struct pollfd *pfd, int out_fd,
 	{
 		/* If 'is_sock' is true, our input fd is a socket, otherwise,
 		 * output fd is a socket. */
-		cfd = (is_sock ? pfd->fd : out_fd);
-		shutdown(cfd, SHUT_RDWR);
+		cfd = (is_sock ? ev->data.fd : out_fd);
 		close(cfd);
-
-		pfd->fd = -1;
 
 		/* Check if EOF> */
 		if (!amnt)
 			*is_eof = 1;
 
+		/* Remove from epoll, if not already removed. */
+		epoll_ctl(epfd, EPOLL_CTL_DEL, ev->data.fd, NULL);
 		return (-1);
 	}
 
@@ -358,14 +353,16 @@ static void sig_handler(int sig)
  */
 int main(int argc, char **argv)
 {
-	struct pollfd fds[3];
+	struct epoll_event ev, events[3];
 	struct run_data rd;
 	char ret_buff[4];
 	char **new_argv;
 	int new_argc;
 	ssize_t amnt;
 	int32_t ret;
+	int nfds;
 	int port;
+	int i;
 
 	int sock;
 	int sock_stdout;
@@ -414,50 +411,94 @@ int main(int argc, char **argv)
 	process_pid = ret;
 
 	/*
+	 * Setup epoll to listen to our fds.
 	 *
+	 * Note: I was quite reluctant to use epoll here, since poll()
+	 * should be more than enough for just 3 fds.... right?....
+	 *
+	 * Er, nope.... for some mysterious reason, listening to 3 fds
+	 * (mostly stdin) was adding huge overhead (twice slower) when
+	 * multiple clients were running at the same time. More
+	 * interestingly, poll'ing() from sock_stdout + sock_stderr
+	 * did not incur overhead, but only when I used stdin and only
+	 * with it.
+	 *
+	 * Fortunately, using epoll() has brought back the same
+	 * performance the code had several commits ago.
 	 */
-	fds[0].fd = sock_stdout;  fds[0].events = POLLIN;
-	fds[1].fd = sock_stderr;  fds[1].events = POLLIN;
-	fds[2].fd = STDIN_FILENO; fds[2].events = POLLIN;
+	epfd = epoll_create1(0);
+	if (epfd < 0)
+		die("Unable to create an epoll file descriptor!\n");
 
-	while (poll(fds, 3, -1) != -1)
+	ev.events  = EPOLLIN;
+	ev.data.fd = sock_stdout;
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
+		die("Unable to add stdout event!\n");
+
+	ev.data.fd = sock_stderr;
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
+		die("Unable to add stderr event!\n");
+
+	ev.data.fd = STDIN_FILENO;
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
+		die("Unable to add stdin event!\n");
+
+	/* Listen to our fds. */
+	while (1)
 	{
-		if (events_error(fds, 3))
+		nfds = epoll_wait(epfd, events, 3, -1);
+		if (nfds < 0)
 			break;
 
-		if (fds[0].revents & POLLIN)
-			if (handle_poll_event(&fds[0], STDOUT_FILENO, 1, &is_eof) < 0)
-				break;
-
-		if (fds[1].revents & POLLIN)
-			if (handle_poll_event(&fds[1], STDERR_FILENO, 1, &is_eof) < 0)
-				break;
-
-		if (fds[2].revents & POLLIN)
+		for (i = 0; i < nfds; i++)
 		{
-			if (handle_poll_event(&fds[2], sock_stdin, 0, &is_eof) < 0
-				&& !is_eof)
+			if (epoll_event_error(events[i].events))
+				goto out_epoll;
+
+			/* handle stdout. */
+			if (events[i].data.fd == sock_stdout)
 			{
-				break;
+				if (handle_epoll_event(&events[i], STDOUT_FILENO, 1,
+					&is_eof) < 0)
+				{
+					goto out_epoll;
+				}
+			}
+
+			/* handle stderr. */
+			else if (events[i].data.fd == sock_stderr)
+			{
+				if (handle_epoll_event(&events[i], STDERR_FILENO, 1,
+					&is_eof) < 0)
+				{
+					goto out_epoll;
+				}
+			}
+
+			/* handle stdin. */
+			else if (events[i].data.fd == STDIN_FILENO)
+			{
+				if (handle_epoll_event(&events[i], sock_stdin, 0,
+					&is_eof) < 0 && !is_eof)
+				{
+					goto out_epoll;
+				}
 			}
 		}
 	}
 
-	/* Wait for return value. */
-	if ((amnt = recv(sock, ret_buff, 4, 0)) != 4)
-		goto out;
+out_epoll:
 
-	ret = msg_to_int32(ret_buff);
+	/* Wait for return value. */
+	if ((amnt = recv(sock, ret_buff, 4, 0)) == 4)
+		ret = msg_to_int32(ret_buff);
 
 out:
 	close(sock);
-
-	if (fds[0].fd >= 0)
-		close(sock_stdout);
-	if (fds[1].fd >= 0)
-		close(sock_stderr);
-	if (fds[2].fd >= 0)
-		close(sock_stdin);
+	close(sock_stdout);
+	close(sock_stderr);
+	close(sock_stdin);
+	close(epfd);
 
 	free(rd.cwd_argv);
 	return ((int)ret);
