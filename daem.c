@@ -167,6 +167,7 @@ static void change_argv(int argc, char *cwd_argv, volatile uintptr_t *sp)
 			argv = p + 1;
 		}
 	}
+	sp[count] = '\0';
 }
 
 /**
