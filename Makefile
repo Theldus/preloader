@@ -25,7 +25,7 @@ INCLUDE = -I.
 
 # Flags
 CC     ?= gcc
-CFLAGS += -fPIC -O0 $(INCLUDE) -g
+CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden
 LDFLAGS = -shared
 LDLIBS  = -ldl -pthread
 
