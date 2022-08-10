@@ -304,16 +304,17 @@ static inline int epoll_event_error(uint32_t evt)
 
 /**
  *
+ *
+ * @return Returns 0 if success, -1 if error (including EOF).
  */
 static int handle_epoll_event(struct epoll_event *ev, int out_fd,
-	int is_sock, int *is_eof)
+	int is_sock)
 {
 	static char buff[1024];
 	ssize_t amnt;
 	int cfd; /* close fd. */
 
-	amnt    = read(ev->data.fd, buff, sizeof buff);
-	*is_eof = 0;
+	amnt = read(ev->data.fd, buff, sizeof buff);
 
 	/* Check if EOF or error... if so, close the file descriptor and
 	 * the connection, if fd belongs to a socket. */
@@ -323,10 +324,6 @@ static int handle_epoll_event(struct epoll_event *ev, int out_fd,
 		 * output fd is a socket. */
 		cfd = (is_sock ? ev->data.fd : out_fd);
 		close(cfd);
-
-		/* Check if EOF> */
-		if (!amnt)
-			*is_eof = 1;
 
 		/* Remove from epoll, if not already removed. */
 		epoll_ctl(epfd, EPOLL_CTL_DEL, ev->data.fd, NULL);
@@ -368,8 +365,9 @@ int main(int argc, char **argv)
 	int sock_stdout;
 	int sock_stderr;
 	int sock_stdin;
-	int is_eof;
+	int closed_fds;
 
+	closed_fds = 0;
 	ret = 42;
 
 	signal(SIGINT,  sig_handler);
@@ -446,6 +444,11 @@ int main(int argc, char **argv)
 	/* Listen to our fds. */
 	while (1)
 	{
+		/* Check if we should close. */
+		if (closed_fds >= 2)
+			break;
+
+		/* If not, wait for new stuff. */
 		nfds = epoll_wait(epfd, events, 3, -1);
 		if (nfds < 0)
 			break;
@@ -458,32 +461,20 @@ int main(int argc, char **argv)
 			/* handle stdout. */
 			if (events[i].data.fd == sock_stdout)
 			{
-				if (handle_epoll_event(&events[i], STDOUT_FILENO, 1,
-					&is_eof) < 0)
-				{
-					goto out_epoll;
-				}
+				if (handle_epoll_event(&events[i], STDOUT_FILENO, 1) < 0)
+					closed_fds++;
 			}
 
 			/* handle stderr. */
 			else if (events[i].data.fd == sock_stderr)
 			{
-				if (handle_epoll_event(&events[i], STDERR_FILENO, 1,
-					&is_eof) < 0)
-				{
-					goto out_epoll;
-				}
+				if (handle_epoll_event(&events[i], STDERR_FILENO, 1) < 0)
+					closed_fds++;
 			}
 
 			/* handle stdin. */
 			else if (events[i].data.fd == STDIN_FILENO)
-			{
-				if (handle_epoll_event(&events[i], sock_stdin, 0,
-					&is_eof) < 0 && !is_eof)
-				{
-					goto out_epoll;
-				}
-			}
+				handle_epoll_event(&events[i], sock_stdin, 0);
 		}
 	}
 
