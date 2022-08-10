@@ -35,7 +35,9 @@ getlibs() {
 	TMPFOLDER="../.dump_$(date +%s%N)"
 	mkdir $TMPFOLDER
 
-	strace -ff -o "$TMPFOLDER/dump_$1" "$@"
+	BIN="$(basename $1)"
+
+	strace -ff -o "$TMPFOLDER/dump_$BIN" "$@"
 
 	#
 	# This regex is an approximation of what a dlopen
@@ -43,11 +45,13 @@ getlibs() {
 	# can only try to 'guess' when a dlopen happens by
 	# other syscalls.
 	#
-	# In *my* environment, it looks like this:
+	# In *my* environments, it looks like this:
 	# openat(AT_FDCWD, "/folder/foo.so", O_RDONLY|O_CLOEXEC) = positive_number
+	#   or this:
+	# open("/folder/foo.so", O_RDONLY|O_CLOEXEC) = positive_number
 	#
 	grep -Pr \
-		"openat\(AT_FDCWD, \".+\.so(\.[0-9]+)*\", O_RDONLY\|O_CLOEXEC\) = [^-]" "$TMPFOLDER" \
+		"open(at)?\((AT_FDCWD, )?\".+\.so(\.[0-9]+)*\", O_RDONLY\|O_CLOEXEC\) = [^-]" "$TMPFOLDER" \
 		| cut -d'"' -f2 \
 		| sort -u > $OUTPUT_FILE
 
