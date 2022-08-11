@@ -293,8 +293,7 @@ static int do_connect(uint16_t port, int *sock)
  */
 static inline int epoll_event_error(uint32_t evt)
 {
-	if ((evt & EPOLLHUP) ||
-		(evt & EPOLLERR) ||
+	if ((evt & EPOLLERR) ||
 		(evt & EPOLLPRI))
 	{
 		return (1);

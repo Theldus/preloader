@@ -61,8 +61,6 @@ start() {
 
 stop() {
 
-	echo "killing..."
-
 	pid_file="$TMPDIR/daem_$DAEM_PORT.pid"
 
 	if [ ! -r "$pid_file" ]; then
