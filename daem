@@ -22,11 +22,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-set -e
-
 ENVPREFIX="DAEM_"
 LIBNAME="daem.so"
 SCRIPT_NAME="$0"
+
+export DAEM_PORT=3636
 
 # Paths
 CURDIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -38,15 +38,7 @@ start() {
 		make
 	fi
 
-
-	# Check if there are an instance already running
-	if [ -z "$DAEM_PORT" ]; then
-		PORT=3636
-	else
-		PORT=$DAEM_PORT
-	fi
-
-	pid_file="$TMPDIR/daem_$PORT.pid"
+	pid_file="$TMPDIR/daem_$DAEM_PORT.pid"
 
 	# If there is a pid file
 	if [ -r "$pid_file" ]; then
@@ -68,7 +60,31 @@ start() {
 }
 
 stop() {
-	echo "Stopped"
+
+	echo "killing..."
+
+	pid_file="$TMPDIR/daem_$DAEM_PORT.pid"
+
+	if [ ! -r "$pid_file" ]; then
+		echo "PID file not found for port $DAEM_PORT, please check the parameters" >&2
+		echo "again. You can check which instances are running by running:" >&2
+		echo "  $ sudo netstat -ntlp" >&2
+		echo "and them you can kill the daemon accordingly." >&2
+		exit 1
+	fi
+
+	pid="$(cat $pid_file)"
+
+	kill $pid &> /dev/null
+
+	if [ "$?" -eq 1 ]; then
+		echo "Unable to kill daemon with PID $pid, maybe the daemon is" >&2
+		echo "already dead?" >&2
+		exit 1
+	fi
+
+	rm "$pid_file"
+	exit 0
 }
 
 check_for_null() {
@@ -98,6 +114,10 @@ Examples:
 
 Options:
   -p,--port             Specifies the port to be listening (default: 3636).
+                        Note: $SCRIPT_NAME uses 4 ports to do IPC, starting
+                        from 'port', up to 'port+3'. If you want to start
+                        multiples instances, please take this into account.
+
   -b,--bind-now         Performs immediate binding, i.e: uses LD_BIND_NOW.
   -d,--daemonize        Daemonizes the server (disabled by default).
                         (Please note that logs are only saved if a file
@@ -106,6 +126,9 @@ Options:
   -f,--load-libs        Preloads a set of libraries (one per line) defined in
                         a text file. This is especially useful if the program
                         dynamically loads *many* libraries.
+
+  -s,--stop             Stop daemon for a default port, or for a given port if
+                        -p is specified.
 
 Logging:
   -o,--log-file <file>  Save log to <file> (default is stderr).
@@ -150,6 +173,10 @@ while [[ $# -gt 0 ]]; do
 			shift
 			shift
 			;;
+		-s|--stop)
+			STOP_DAEMON=1
+			shift
+			;;
 		-o|--log-file)
 			check_for_null "$2"
 			export DAEM_LOG_FILE="$2"
@@ -175,6 +202,11 @@ while [[ $# -gt 0 ]]; do
 			;;
 	esac
 done
+
+# Check if we should stop
+if [ ! -z "$STOP_DAEMON" ]; then
+	stop
+fi
 
 # Validate program name
 if [ -z "${ARGV[0]}" ]; then
