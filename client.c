@@ -24,6 +24,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -213,6 +214,7 @@ static void usage(const char *prgname)
 static char **parse_args(int *new_argc, char **argv, int *port)
 {
 	char **new_argv = argv;
+	char  *prog_base, *tmp;
 	int argc = *new_argc;
 
 	/* at least <program> <arg1>. */
@@ -221,15 +223,24 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 
 	*port = SV_DEFAULT_PORT;
 
+	/* Get true program name. */
+	prog_base = strdup(argv[0]);
+	if (!prog_base)
+		die("Unable to allocate memory!\n");
+	tmp = basename(argv[0]);
+
 	/*
 	 * If calling client 'normally':
-	 *    ./client           <program> <arg1> ... <argN>, min 3
-	 *      client           <program> <arg1> ... <argN>, min 3
-	 *    ./client -p <port> <program> <arg1> ... <argN>, min 4
-	 *      client -p <port  <program> <arg1> ... <argN>, min 4
+	 *     ./client           <program> <arg1> ... <argN>, min 3
+	 *       client           <program> <arg1> ... <argN>, min 3
+	 * /path/client           <program> <arg1> ... <argN>, min 3
+	 *    ./client  -p <port> <program> <arg1> ... <argN>, min 4
+	 *      client  -p <port  <program> <arg1> ... <argN>, min 4
+	 * /path/client -p <port  <program> <arg1> ... <argN>, min 4
 	 */
-	if (!strcmp(argv[0], PRG_NAME) || !strcmp(argv[0], "./"PRG_NAME))
+	if (!strcmp(tmp, PRG_NAME))
 	{
+		free(prog_base);
 		if (!strcmp(argv[1], "-p"))
 		{
 			if (argc < 4)
@@ -256,6 +267,8 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 			new_argv += 1;
 		}
 	}
+	else
+		free(prog_base);
 
 	/*
 	 * If called by a symlink or if this client is renamed,
