@@ -30,7 +30,7 @@ CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden
 LDFLAGS = -shared
 LDLIBS  = -ldl -pthread
 
-OBJ = daem.o ipc.o util.o log.o load.o reaper.o
+OBJ = preloader.o ipc.o util.o log.o load.o reaper.o
 
 # Phone targets
 .PHONY: tests clean
@@ -42,7 +42,7 @@ ifeq ($(V), 1)
 endif
 
 # Rules
-all: daem.so client
+all: libpreloader.so preloader_cli
 
 # C Files
 %.o: %.c
@@ -50,20 +50,20 @@ all: daem.so client
 	$(Q)$(CC) $< $(CFLAGS) -c -o $@
 
 # Preloader
-daem.so: $(OBJ)
+libpreloader.so: $(OBJ)
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
 
 # Client program
-client.o: client.c
+preloader_cli.o: preloader_cli.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c
-client: client.o
+	$(Q)$(CC) $^ -c -D "PRG_NAME=\"$(basename $@)\""
+preloader_cli: preloader_cli.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -O2 -o $@
 
 # Tests
-tests: daem.so client $(TESTS)/test
+tests: libpreloader.so preloader_cli $(TESTS)/test
 	@bash "$(TESTS)/test.sh"
 $(TESTS)/test.o: $(TESTS)/test.c
 	@echo "  CC      $@"
@@ -74,7 +74,7 @@ $(TESTS)/test: $(TESTS)/test.o
 
 clean:
 	$(RM) $(OBJ)
-	$(RM) client.o $(TESTS)/test.o
-	$(RM) $(CURDIR)/daem.so
-	$(RM) $(CURDIR)/client
+	$(RM) preloader_cli.o $(TESTS)/test.o
+	$(RM) $(CURDIR)/libpreloader.so
+	$(RM) $(CURDIR)/preloader_cli
 	$(RM) $(TESTS)/test

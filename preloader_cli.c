@@ -36,7 +36,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define PRG_NAME "client"
+#ifndef PRG_NAME
+#define PRG_NAME "preloader_cli"
+#endif
 
 #define die(...) \
 	do { \

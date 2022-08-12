@@ -27,7 +27,6 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#include "daem.h"
 #include "log.h"
 
 static const char *log_string[] = {"info", "err", "crit"};

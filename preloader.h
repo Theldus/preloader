@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef DAEM_H
-#define DAEM_H
+#ifndef PRELOADER_H
+#define PRELOADER_H
 
 	/* Our global arguments struct. */
 	struct args
@@ -39,4 +39,4 @@
 		char *load_file;
 	};
 
-#endif /* DAEM_H */
+#endif /* PRELOADER_H */

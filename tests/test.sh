@@ -29,8 +29,8 @@ NC="\033[0m"
 
 # Paths
 CURDIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-PROG=$(readlink -f "$CURDIR/../daem")
-CLI=$(readlink -f "$CURDIR/../client")
+PROG=$(readlink -f "$CURDIR/../preloader")
+CLI=$(readlink -f "$CURDIR/../preloader_cli")
 TEST="$CURDIR/test"
 
 not_pass() {

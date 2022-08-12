@@ -51,10 +51,10 @@ int64_t time_ms(void)
 static char* get_pid_file_path(const char *pid_path, int port)
 {
 	static char path[4096];
-	if (strlen(pid_path) + sizeof "/daem_65535.pid" > sizeof path)
+	if (strlen(pid_path) + sizeof "/preloader_65535.pid" > sizeof path)
 		return (NULL);
 
-	snprintf(path, sizeof path - 1, "%s/daem_%d.pid", pid_path, port);
+	snprintf(path, sizeof path - 1, "%s/preloader_%d.pid", pid_path, port);
 	return (path);
 }
 

@@ -22,11 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ENVPREFIX="DAEM_"
-LIBNAME="daem.so"
+LIBNAME="libpreloader.so"
 SCRIPT_NAME="$0"
 
-export DAEM_PORT=3636
+export PRELOADER_PORT=3636
 
 # Paths
 CURDIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -38,7 +37,7 @@ start() {
 		make
 	fi
 
-	pid_file="$TMPDIR/daem_$DAEM_PORT.pid"
+	pid_file="$TMPDIR/preloader_$PRELOADER_PORT.pid"
 
 	# If there is a pid file
 	if [ -r "$pid_file" ]; then
@@ -61,10 +60,10 @@ start() {
 
 stop() {
 
-	pid_file="$TMPDIR/daem_$DAEM_PORT.pid"
+	pid_file="$TMPDIR/preloader_$PRELOADER_PORT.pid"
 
 	if [ ! -r "$pid_file" ]; then
-		echo "PID file not found for port $DAEM_PORT, please check the parameters" >&2
+		echo "PID file not found for port $PRELOADER_PORT, please check the parameters" >&2
 		echo "again. You can check which instances are running by running:" >&2
 		echo "  $ sudo netstat -ntlp" >&2
 		echo "and them you can kill the daemon accordingly." >&2
@@ -153,7 +152,7 @@ while [[ $# -gt 0 ]]; do
 		-p|--port)
 			check_for_null    "$2"
 			check_for_integer "$2"
-			export DAEM_PORT="$2"
+			export PRELOADER_PORT="$2"
 			shift
 			shift
 			;;
@@ -162,12 +161,12 @@ while [[ $# -gt 0 ]]; do
 			shift
 			;;
 		-d|--daemonize)
-			export DAEM_DAEMONIZE="1"
+			export PRELOADER_DAEMONIZE="1"
 			shift
 			;;
 		-f|--load-libs)
 			check_for_null "$2"
-			export DAEM_LOAD_FILE="$2"
+			export PRELOADER_LOAD_FILE="$2"
 			shift
 			shift
 			;;
@@ -177,13 +176,13 @@ while [[ $# -gt 0 ]]; do
 			;;
 		-o|--log-file)
 			check_for_null "$2"
-			export DAEM_LOG_FILE="$2"
+			export PRELOADER_LOG_FILE="$2"
 			shift
 			shift
 			;;
 		-l|--log-level)
 			check_for_null "$2"
-			export DAEM_LOG_LVL="$2"
+			export PRELOADER_LOG_LVL="$2"
 			shift
 			shift
 			;;

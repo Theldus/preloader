@@ -323,7 +323,7 @@ static void parse_args(void)
 	char *env;
 
 	/* Check port. */
-	if ((env = getenv("DAEM_PORT")) != NULL)
+	if ((env = getenv("PRELOADER_PORT")) != NULL)
 	{
 		if (str2int(&args.port, env) < 0 ||
 			(args.port < 0 || args.port > 65535))
@@ -333,7 +333,7 @@ static void parse_args(void)
 	}
 
 	/* Check for log level. */
-	if ((env = getenv("DAEM_LOG_LVL")) != NULL)
+	if ((env = getenv("PRELOADER_LOG_LVL")) != NULL)
 	{
 		if (!strcmp(env, "info"))
 			args.log_lvl = LOG_LVL_INFO;
@@ -349,21 +349,21 @@ static void parse_args(void)
 	}
 
 	/* Check log file. */
-	if ((env = getenv("DAEM_LOG_FILE")) != NULL)
+	if ((env = getenv("PRELOADER_LOG_FILE")) != NULL)
 	{
 		args.log_file = strdup(env);
 		args.log_fd = -1;
 	}
 
 	/* Check daemon. */
-	if (getenv("DAEM_DAEMONIZE"))
+	if (getenv("PRELOADER_DAEMONIZE"))
 	{
 		args.daemonize = 1;
 		args.log_fd = -1;
 	}
 
 	/* Check if should load a given file too. */
-	if ((env = getenv("DAEM_LOAD_FILE")) != NULL)
+	if ((env = getenv("PRELOADER_LOAD_FILE")) != NULL)
 		args.load_file = strdup(env);
 }
 
