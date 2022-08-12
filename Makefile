@@ -22,6 +22,7 @@
 
 # Paths
 INCLUDE = -I.
+TESTS = $(CURDIR)/tests
 
 # Flags
 CC     ?= gcc
@@ -31,18 +32,49 @@ LDLIBS  = -ldl -pthread
 
 OBJ = daem.o ipc.o util.o log.o load.o reaper.o
 
+# Phone targets
+.PHONY: tests clean
+
+# Pretty print
+Q := @
+ifeq ($(V), 1)
+	Q :=
+endif
+
+# Rules
 all: daem.so client
 
-daem.so: $(OBJ)
-	$(CC) $^ $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+# C Files
+%.o: %.c
+	@echo "  CC      $@"
+	$(Q)$(CC) $< $(CFLAGS) -c -o $@
 
+# Preloader
+daem.so: $(OBJ)
+	@echo "  LD      $@"
+	$(Q)$(CC) $^ $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+
+# Client program
 client.o: client.c
-	$(CC) $^ -c
+	@echo "  CC      $@"
+	$(Q)$(CC) $^ -c
 client: client.o
-	$(CC) $^ -o $@
+	@echo "  LD      $@"
+	$(Q)$(CC) $^ -O2 -o $@
+
+# Tests
+tests: daem.so client $(TESTS)/test
+	@bash "$(TESTS)/test.sh"
+$(TESTS)/test.o: $(TESTS)/test.c
+	@echo "  CC      $@"
+	$(Q)$(CC) $^ -c -o $@
+$(TESTS)/test: $(TESTS)/test.o
+	@echo "  LD      $@"
+	$(Q)$(CC) $^ -o $@
 
 clean:
 	$(RM) $(OBJ)
-	$(RM) client.o
+	$(RM) client.o $(TESTS)/test.o
 	$(RM) $(CURDIR)/daem.so
 	$(RM) $(CURDIR)/client
+	$(RM) $(TESTS)/test
