@@ -30,11 +30,31 @@ export PRELOADER_PORT=3636
 # Paths
 CURDIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 TMPDIR=${TMPDIR:="/tmp"}
+PRELOADER="$CURDIR/$LIBNAME"
 
 start() {
 	# lib should exist
-	if [ ! -f "$CURDIR/$LIBNAME" ]; then
-		make
+	if [ ! -f "$PRELOADER" ]; then
+		# Build if we're inside the source tree
+		if [ -f "$CURDIR/preloader.c" ]; then
+			make
+		# Otherwise, we need to launch the installed version,
+		# if any.
+		else
+			case "$(uname -m)" in
+				*64) LIB="lib64" ;;
+				*)   LIB="lib" ;;
+			esac
+
+			if [ ! -f "$CURDIR/../$LIB/$LIBNAME" ]; then
+				echo "Unable to execute preloader, please check if the" >&2
+				echo "library is properly built and/or installed and" >&2
+				echo "try again!" >&2
+				exit 1
+			else
+				PRELOADER="$(readlink -f $CURDIR/../$LIB/$LIBNAME)"
+			fi
+		fi
 	fi
 
 	pid_file="$TMPDIR/preloader_$PRELOADER_PORT.pid"
@@ -55,7 +75,7 @@ start() {
 	#
 	# Obs:
 	#
-	LD_PRELOAD=$CURDIR/$LIBNAME "$1" {1..200}
+	LD_PRELOAD="$PRELOADER" "$1" {1..200}
 }
 
 stop() {
@@ -63,8 +83,9 @@ stop() {
 	pid_file="$TMPDIR/preloader_$PRELOADER_PORT.pid"
 
 	if [ ! -r "$pid_file" ]; then
-		echo "PID file not found for port $PRELOADER_PORT, please check the parameters" >&2
-		echo "again. You can check which instances are running by running:" >&2
+		echo "PID file not found for port $PRELOADER_PORT, please check" >&2
+		echo "the parameters again. You can check which instances are"   >&2
+		echo "running by running:"    >&2
 		echo "  $ sudo netstat -ntlp" >&2
 		echo "and them you can kill the daemon accordingly." >&2
 		exit 1

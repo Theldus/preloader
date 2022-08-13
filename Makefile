@@ -21,8 +21,19 @@
 # SOFTWARE.
 
 # Paths
-INCLUDE = -I.
-TESTS = $(CURDIR)/tests
+INCLUDE  = -I.
+TESTS    = $(CURDIR)/tests
+PREFIX  ?= /usr/local
+BINDIR   = $(PREFIX)/bin
+MANPAGES = $(CURDIR)/doc/
+
+# Detect machine type
+MACHINE = $(shell uname -m)
+ifeq ($(MACHINE), x86_64)
+	LIBDIR = $(PREFIX)/lib64
+else
+	LIBDIR = $(PREFIX)/lib
+endif
 
 # Flags
 CC     ?= gcc
@@ -33,7 +44,7 @@ LDLIBS  = -ldl -pthread
 OBJ = preloader.o ipc.o util.o log.o load.o reaper.o
 
 # Phone targets
-.PHONY: tests clean
+.PHONY: tests install uninstall clean
 
 # Pretty print
 Q := @
@@ -72,6 +83,22 @@ $(TESTS)/test: $(TESTS)/test.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@
 
+# Install
+install: libpreloader.so preloader_cli
+	@echo "  INSTALL      $^"
+	$(Q)install -d $(DESTDIR)$(LIBDIR)
+	$(Q)install -m 755 $(CURDIR)/libpreloader.so $(DESTDIR)$(LIBDIR)
+	$(Q)install -d $(DESTDIR)$(BINDIR)
+	$(Q)install -m 755 preloader $(DESTDIR)$(BINDIR)
+	$(Q)install -m 755 preloader_cli $(DESTDIR)$(BINDIR)
+
+# Uninstall
+uninstall:
+	$(RM) $(DESTDIR)$(LIBDIR)/libpreloader.so
+	$(RM) $(DESTDIR)$(BINDIR)/preloader
+	$(RM) $(DESTDIR)$(BINDIR)/preloader_cli
+
+# Clean
 clean:
 	$(RM) $(OBJ)
 	$(RM) preloader_cli.o $(TESTS)/test.o
