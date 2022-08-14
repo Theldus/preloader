@@ -23,6 +23,7 @@
 # Paths
 INCLUDE  = -I.
 TESTS    = $(CURDIR)/tests
+UTILS    = $(CURDIR)/utils
 PREFIX  ?= /usr/local
 BINDIR   = $(PREFIX)/bin
 MANPAGES = $(CURDIR)/doc/
@@ -44,7 +45,7 @@ LDLIBS  = -ldl -pthread
 OBJ = preloader.o ipc.o util.o log.o load.o reaper.o
 
 # Phone targets
-.PHONY: tests install uninstall clean
+.PHONY: tests finder install uninstall clean
 
 # Pretty print
 Q := @
@@ -83,6 +84,15 @@ $(TESTS)/test: $(TESTS)/test.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@
 
+# Finder
+finder: $(UTILS)/finder
+$(UTILS)/finder.o: $(UTILS)/finder.c
+	@echo "  CC      $@"
+	$(Q)$(CC) $^ -c -o $@ -O3
+$(UTILS)/finder: $(UTILS)/finder.o
+	@echo "  LD      $@"
+	$(Q)$(CC) $^ -o $@ -lelf
+
 # Install
 install: libpreloader.so preloader_cli
 	@echo "  INSTALL      $^"
@@ -101,7 +111,8 @@ uninstall:
 # Clean
 clean:
 	$(RM) $(OBJ)
-	$(RM) preloader_cli.o $(TESTS)/test.o
+	$(RM) preloader_cli.o $(TESTS)/test.o $(UTILS)/finder.o
 	$(RM) $(CURDIR)/libpreloader.so
 	$(RM) $(CURDIR)/preloader_cli
 	$(RM) $(TESTS)/test
+	$(RM) $(UTILS)/finder
