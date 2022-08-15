@@ -22,3 +22,7 @@
 
 # Default rules.
 *.o
+libpreloader.so
+preloader_cli
+tests/test
+utils/finder
