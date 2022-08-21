@@ -42,7 +42,8 @@ CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden
 LDFLAGS = -shared
 LDLIBS  = -ldl -pthread
 
-OBJ = preloader.o ipc.o util.o log.o load.o reaper.o
+OBJ =  preloader.o ipc.o util.o log.o load.o reaper.o arch.o
+OBJ += arch/arch_x86_64.o arch/x86_64.o
 
 # Phone targets
 .PHONY: tests finder install uninstall clean
@@ -58,6 +59,11 @@ all: libpreloader.so preloader_cli
 
 # C Files
 %.o: %.c
+	@echo "  CC      $@"
+	$(Q)$(CC) $< $(CFLAGS) -c -o $@
+
+# ASM Files
+%.o: %.S
 	@echo "  CC      $@"
 	$(Q)$(CC) $< $(CFLAGS) -c -o $@
 
@@ -111,7 +117,9 @@ uninstall:
 # Clean
 clean:
 	$(RM) $(OBJ)
-	$(RM) preloader_cli.o $(TESTS)/test.o $(UTILS)/finder.o
+	$(RM) preloader_cli.o
+	$(RM) $(TESTS)/test.o
+	$(RM) $(UTILS)/finder.o
 	$(RM) $(CURDIR)/libpreloader.so
 	$(RM) $(CURDIR)/preloader_cli
 	$(RM) $(TESTS)/test
