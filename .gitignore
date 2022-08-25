@@ -22,6 +22,7 @@
 
 # Default rules.
 *.o
+.cache
 libpreloader.so
 preloader_cli
 tests/test

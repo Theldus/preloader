@@ -42,8 +42,27 @@ CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden
 LDFLAGS = -shared
 LDLIBS  = -ldl -pthread
 
+#
+# Guess target architecture:
+# I know... this is ugly, but there isn't an exactly
+# beautiful way to do it via Make/GNU Make. At least
+# this approach works automatically with cross-compiler
+# and caches the arch for future invocations.
+#
+# One downside is that it doesn't work in TCC, so it's
+# not exactly portable.
+#
+# Optionally, the user can configure the target
+# architecture beforehand, to support TCC and other
+# environments (which may not have sed, cut...):
+#   $ ARCH=x86_64 make CC=tcc
+#
+ARCH ?= $(shell cat .cache 2>/dev/null || \
+	echo | $(CC) -dM -E - | grep -P "__i386__|__x86_64__" | \
+	cut -d' ' -f2 | sed 's/__//g' | tee .cache)
+
 OBJ =  preloader.o ipc.o util.o log.o load.o reaper.o arch.o
-OBJ += arch/arch_x86_64.o arch/x86_64.o
+OBJ += arch/arch_$(ARCH).o arch/$(ARCH).o
 
 # Phone targets
 .PHONY: tests finder install uninstall clean

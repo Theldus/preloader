@@ -120,7 +120,7 @@ void arch_setup(void)
 	if (!(arch_addr_start = getauxval(AT_ENTRY)))
 		die("Unable to get AT_ENTRY, aborting...\n");
 
-	log_info("AT_ENTRY: %" PRIx64"\n", arch_addr_start);
+	log_info("AT_ENTRY: %" PRIxPTR"\n", arch_addr_start);
 
 	/* Make _start RWX. */
 	if (make_rwx(arch_addr_start, 512) < 0)
