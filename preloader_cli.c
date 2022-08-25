@@ -452,7 +452,8 @@ int main(int argc, char **argv)
 		die("Unable to add stderr event!\n");
 
 	ev.data.fd = STDIN_FILENO;
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0 &&
+		errno != EPERM)
 		die("Unable to add stdin event!\n");
 
 	/* Listen to our fds. */
