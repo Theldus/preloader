@@ -58,7 +58,7 @@ LDLIBS  = -ldl -pthread
 #   $ ARCH=x86_64 make CC=tcc
 #
 ARCH ?= $(shell cat .cache 2>/dev/null || \
-	echo | $(CC) -dM -E - | grep -P "__i386__|__x86_64__" | \
+	echo | $(CC) -dM -E - | grep -P "__i386__|__x86_64__|__arm__" | \
 	cut -d' ' -f2 | sed 's/__//g' | tee .cache)
 
 OBJ =  preloader.o ipc.o util.o log.o load.o reaper.o arch.o
@@ -135,6 +135,7 @@ uninstall:
 
 # Clean
 clean:
+	$(RM) .cache
 	$(RM) $(OBJ)
 	$(RM) preloader_cli.o
 	$(RM) $(TESTS)/test.o
