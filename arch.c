@@ -27,10 +27,15 @@
 #include <stdint.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "arch.h"
 #include "log.h"
 #include "util.h"
+
+/* Environment variables pointer. */
+extern char **environ;
 
 /**
  *
@@ -55,6 +60,56 @@ static int make_rwx(uintptr_t p, size_t min_size)
 		return (-1);
 	}
 	return (0);
+}
+
+/**
+ * @brief Retrieve a value from the auxiliary vector
+ *
+ * @param type Type to be retrieved.
+ *
+ * @return On success, returns the value corresponding
+ * to @p type. Otherwise, returns 0.
+ *
+ * @note This function was made to replace the original
+ * getauxval(): as with 'environ', auxv is also shifted
+ * to the left and the reference that libc makes of it
+ * no longer makes sense.
+ *
+ * Since there is no way to 'fix' the auxv pointer (and
+ * this is quite library dependent), this function 'fixes'
+ * getauxval() by replacing the original with another of
+ * the same signature, which reads data directly from
+ * /proc/self/auxv, which should always work.
+ *
+ * Reading from /proc/sef/auxv for each invocation of
+ * this function is far from ideal, but I believe this
+ * function will not be invoked multiple times to the
+ * point where it becomes a bottleneck. If this happens,
+ * please let me know.
+ */
+__attribute__((visibility("default")))
+unsigned long getauxval(unsigned long type)
+{
+	unsigned long ret;
+	uintptr_t aux[2];
+	ssize_t r;
+	int fd;
+
+	fd = open("/proc/self/auxv", O_RDONLY);
+	if (fd < 0)
+		return (0);
+
+	ret = 0;
+	while ((r = read(fd, &aux, sizeof aux)) > 0)
+	{
+		if (aux[0] != type)
+			continue;
+
+		ret = aux[1];
+		break;
+	}
+	close(fd);
+	return (ret);
 }
 
 /**
@@ -91,6 +146,19 @@ void arch_change_argv(int argc, char *cwd_argv, uintptr_t *sp)
 	/* Advance until find two NULs, this is our length. */
 	for (len = src + 1; *len; len++);
 	for (len = len + 1; *len; len++);
+
+	/*
+	 * Once the argv, envp and auxv were shifted to the left,
+	 * the reference glibc made to 'envp' no longer makes
+	 * sense and needs to be updated. This isn't exactly
+	 * pretty, but it's the only way I've found to keep the
+	 * argument list (when getting to _start) as expected
+	 * _and_ not messing up glibc.
+	 *
+	 * Although I make references to glibc here, this
+	 * should (or should) work in other libs such as Bionic.
+	 */
+	environ = (char **)&dest[1];
 
 	/* Move envp and auxv into the parameter list. */
 	while (dest <= len)
