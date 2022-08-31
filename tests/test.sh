@@ -33,18 +33,21 @@ PROG=$(readlink -f "$CURDIR/../preloader")
 CLI=$(readlink -f "$CURDIR/../preloader_cli")
 TEST="$CURDIR/test"
 
+announce() {
+	printf "Test $1: "
+}
+
 not_pass() {
-	printf "Tests: [%bNOT PASSED%b]\nReason: $1\n" $RED $NC >&2
-	rm -rf "$CURDIR/.out_normal.txt"
-	rm -rf "$CURDIR/.out_cli.txt"
+	$PROG -s
+	printf "[%bNOT PASSED%b]\nReason: $2\n" $RED $NC >&2
 	exit 1
 }
 
 pass() {
-	printf "Tests: [%bPASSED%b]\n" $GREEN $NC
+	$PROG -s
+	printf "[%bPASSED%b]\n" $GREEN $NC
 	rm -rf "$CURDIR/.out_normal.txt"
 	rm -rf "$CURDIR/.out_cli.txt"
-	exit 0
 }
 
 # Sanity checks
@@ -58,36 +61,83 @@ if [ ! -f "$TEST" ]; then
 	exit 1
 fi
 
-# First: run test normally
-echo "some input to test stdin" | $TEST 1 2 3 4 \
-	&> "$CURDIR/.out_normal.txt"
-out_n="$?"
+test1() {
+	local flags="$1"
+	local test_name="$2"
 
-# Second:
-# 1) Launch preloader in daemon mode
-$PROG $TEST -d
+	announce "$2"
 
-# 2) Run preloader client
-echo "some input to test stdin" | $CLI $TEST 1 2 3 4 \
-	&> "$CURDIR/.out_cli.txt"
-out_c="$?"
+	# First: run test normally
+	echo "some input to test stdin" | $TEST a b c d \
+		&> "$CURDIR/.out_normal.txt"
+	out_n="$?"
 
-# 3) Stop daemon
-$PROG -s
+	# Second:
+	# 1) Launch preloader in daemon mode
+	$PROG $TEST -d "$flags"
 
-## Compare return code and outputs
-if [ "$out_n" -ne "$out_c" ]; then
-	not_pass "Return code differ from expected!"
-fi
+	# 2) Run preloader client
+	echo "some input to test stdin" | $CLI $TEST a b c d \
+		&> "$CURDIR/.out_cli.txt"
+	out_c="$?"
 
-#
-# Compare both outputs:
-# Since stdout might be 'reordered' with stderr, we need
-# to sort both outputs.
-#
-if ! cmp -s <(sort "$CURDIR/.out_cli.txt") \
-	<(sort "$CURDIR/.out_normal.txt"); then
-	not_pass "Output differ from expected"
-fi
+	## Compare return code and outputs
+	if [ "$out_n" -ne "$out_c" ]; then
+		not_pass "$test_name" \
+		"Return code differ from expected!, expected: $out_n, got: $out_c"
+	fi
 
-pass
+	#
+	# Compare both outputs:
+	# Since stdout might be 'reordered' with stderr, we need
+	# to sort both outputs.
+	#
+	if ! cmp -s <(sort "$CURDIR/.out_cli.txt") \
+		<(sort "$CURDIR/.out_normal.txt"); then
+		not_pass "$test_name" "Output differ from expected"
+	fi
+
+	pass "$test_name"
+}
+
+test2() {
+	local flags="$1"
+	local test_name="$2"
+	local arr=({a..z})
+	local MAX=200
+
+	announce "$2"
+
+	# 1) Launch preloader in daemon mode
+	$PROG $TEST -d "$flags"
+
+	# Loop through each amount of args
+	for i in $(seq 1 $MAX)
+	do
+		# Build argument list
+		# First  run (i = 1): a
+		# Second run (i = 2): a b
+		# Third  run (i = 3): a b c
+		# n-th   run (i = n): a b c .. z a b c ...
+		args=()
+		for j in $(seq 0 $((i-1)))
+		do
+			idx=$((j%26))
+			args+=(${arr[idx]})
+		done
+
+		# Run
+		echo "input" | $CLI $TEST "${args[@]}" &> /dev/null
+		out_c="$?"
+
+		if [ "$out_c" -ne 42 ]; then
+			not_pass "$test_name" "Failed with $i arguments!"
+		fi
+	done
+
+	pass "$test_name"
+}
+
+test1 ""   "#1: normal run "
+test1 "-b" "#2: run w/ bind"
+test2 ""   "#3: range test (this may take a while)"

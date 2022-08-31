@@ -24,6 +24,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/auxv.h>
+
+static char expected_char = 'a';
 
 int main(int argc, char **argv)
 {
@@ -44,16 +47,47 @@ int main(int argc, char **argv)
 
 	/* Arguments. */
 	printf("argc: %d\n", argc);
-	for (i = 0; i < argc; i++)
-		printf("argv[%d] = %s\n", i, argv[i]);
+
+	printf("argv[0] = %s\n", argv[0]);
+
+	for (i = 1; i < argc; i++)
+	{
+		/* Validate arguments: shoud always be: 'a', 'b', 'c'... */
+		if (argv[i][0] == expected_char)
+		{
+			printf("argv[%d] = %s\n", i, argv[i]);
+			expected_char++;
+			if (expected_char > 'z')
+				expected_char = 'a';
+		}
+		else
+			return (21);
+	}
 
 	/* 'Non-typical' way to print arguments. */
 	printf("\"non-typical\":\n");
-	for (p = argv; *p; p++)
-		printf("argv: %s\n", *p);
+	p = argv;
+	expected_char = 'a';
+
+	printf("argv: %s\n", *p++);
+	for (; *p; p++)
+	{
+		if (p[0][0] == expected_char)
+		{
+			printf("argv: %s\n", *p);
+			expected_char++;
+			if (expected_char > 'z')
+				expected_char = 'a';
+		}
+		else
+			return (22);
+	}
 
 	/* Get some env var to make sure they're no 'corrupted'. */
 	printf("PWD: (%s)\n", getenv("PWD"));
+
+	/* Get some aux val to make sure they're accessible too. */
+	printf("AT_PAGESZ: %lu\n", getauxval(AT_PAGESZ));
 
 	/* Return some number. */
 	return (42);
