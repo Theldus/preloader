@@ -42,6 +42,11 @@ CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden
 LDFLAGS = -shared
 LDLIBS  = -ldl -pthread
 
+# If TMPDIR exists, use it instead of /tmp
+ifneq ($(TMPDIR),)
+	CFLAGS += -DPID_PATH=\"$(TMPDIR)\"
+endif
+
 #
 # Guess target architecture:
 # I know... this is ugly, but there isn't an exactly

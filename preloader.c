@@ -233,7 +233,7 @@ void __attribute__ ((constructor)) my_init(void)
 	parse_args();
 
 	/* Check if we're already running, if so, do nothing. */
-	if (!read_and_check_pid(PID_PATH, args.port))
+	if (!read_and_check_pid(args.pid_path, args.port))
 		return;
 
 	/* Initialize logs. */
@@ -251,7 +251,7 @@ void __attribute__ ((constructor)) my_init(void)
 		pause();
 
 	/* PID file. */
-	if (create_pid(PID_PATH, args.port) < 0)
+	if (create_pid(args.pid_path, args.port) < 0)
 		die("Unable to create pid file, aborting...\n");
 
 	log_info("Initializing...\n");
