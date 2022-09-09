@@ -41,18 +41,13 @@ start() {
 		# Otherwise, we need to launch the installed version,
 		# if any.
 		else
-			case "$(uname -m)" in
-				*64) LIB="lib64" ;;
-				*)   LIB="lib" ;;
-			esac
-
-			if [ ! -f "$CURDIR/../$LIB/$LIBNAME" ]; then
+			if [ ! -f "$CURDIR/../lib/$LIBNAME" ]; then
 				echo "Unable to execute preloader, please check if the" >&2
 				echo "library is properly built and/or installed and" >&2
 				echo "try again!" >&2
 				exit 1
 			else
-				PRELOADER="$(readlink -f $CURDIR/../$LIB/$LIBNAME)"
+				PRELOADER="$(readlink -f $CURDIR/../lib/$LIBNAME)"
 			fi
 		fi
 	fi

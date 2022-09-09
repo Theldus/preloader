@@ -27,14 +27,7 @@ UTILS    = $(CURDIR)/utils
 PREFIX  ?= /usr/local
 BINDIR   = $(PREFIX)/bin
 MANPAGES = $(CURDIR)/doc/
-
-# Detect machine type
-MACHINE = $(shell uname -m)
-ifeq ($(MACHINE), x86_64)
-	LIBDIR = $(PREFIX)/lib64
-else
-	LIBDIR = $(PREFIX)/lib
-endif
+LIBDIR   = $(PREFIX)/lib
 
 # Flags
 CC     ?= gcc
