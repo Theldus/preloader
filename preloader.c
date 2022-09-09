@@ -210,8 +210,6 @@ static void sig_handler(int sig)
  */
 static void daemonize(void)
 {
-	int fd;
-
 	/* Fork and let the parent dies. */
 	if (fork() != 0)
 		exit(0);

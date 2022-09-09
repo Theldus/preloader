@@ -172,7 +172,6 @@ static int accept_timeout(int fd, int timeout_ms)
 	struct sockaddr_in cli;
 	struct pollfd pfd;
 	size_t len;
-	int ret;
 
 	pfd.fd = fd;
 	pfd.events = POLLIN;
@@ -252,8 +251,9 @@ char *ipc_recv_msg(int conn, int *argc_p)
 	char *cwd_argv;
 	int32_t amnt_bytes;
 	uint8_t tmp[4] = {0};
-	struct net_data nd = {0};
+	struct net_data nd;
 
+	memset(&nd, 0, sizeof nd);
 	nd.client = conn;
 
 	/*

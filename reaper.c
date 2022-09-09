@@ -53,11 +53,11 @@ static off_t get_child_pos(pid_t pid)
 	off_t i;
 
 pthread_mutex_lock(&list_mutex);
-	for (i = 0; i < cl.size; i++)
+	for (i = 0; i < (off_t)cl.size; i++)
 		if (cl.c[i].pid == pid)
 			break;
 
-	if (i == cl.size)
+	if (i == (off_t)cl.size)
 		i = -1;
 pthread_mutex_unlock(&list_mutex);
 
@@ -204,7 +204,7 @@ pthread_mutex_unlock(&list_mutex);
  */
 void reaper_init(void)
 {
-	int i;
+	size_t i;
 	pthread_t t;
 
 	cl.size = 16;

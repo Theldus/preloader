@@ -31,7 +31,7 @@ LIBDIR   = $(PREFIX)/lib
 
 # Flags
 CC     ?= gcc
-CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden
+CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden -Wall -Wextra
 LDFLAGS = -shared
 LDLIBS  = -ldl -pthread
 
@@ -94,7 +94,7 @@ libpreloader.so: $(OBJ)
 # Client program
 preloader_cli.o: preloader_cli.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c -D "PRG_NAME=\"$(basename $@)\""
+	$(Q)$(CC) $^ -c -D "PRG_NAME=\"$(basename $@)\"" -Wall -Wextra
 preloader_cli: preloader_cli.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -O2 -o $@
@@ -104,7 +104,7 @@ tests: libpreloader.so preloader_cli $(TESTS)/test
 	@bash "$(TESTS)/test.sh"
 $(TESTS)/test.o: $(TESTS)/test.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c -o $@
+	$(Q)$(CC) $^ -c -o $@ -Wall -Wextra
 $(TESTS)/test: $(TESTS)/test.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@
@@ -113,7 +113,7 @@ $(TESTS)/test: $(TESTS)/test.o
 finder: $(UTILS)/finder
 $(UTILS)/finder.o: $(UTILS)/finder.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c -o $@ -O3
+	$(Q)$(CC) $^ -c -o $@ -O3 -Wall -Wextra
 $(UTILS)/finder: $(UTILS)/finder.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@ -lelf

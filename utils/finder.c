@@ -165,7 +165,7 @@ static char* get_lib_path(const char *lib)
 {
 	static char path[PATH_MAX] = {0};
 	struct stat st;
-	int i;
+	size_t i;
 
 	for (i = 0; i < sizeof search_path / sizeof search_path[0]; i++)
 	{
@@ -216,7 +216,6 @@ out2:
 	close(elf->fd);
 out1:
 	elf_end(elf->e);
-out0:
 	return (-1);
 }
 
@@ -379,7 +378,6 @@ static int dump_dyn_libs(struct open_elf *elf, Elf_Scn *scn, GElf_Shdr *shdr,
 {
 	GElf_Dyn  dyn_entry;
 	Elf_Data *dyn_data;
-	struct open_elf op;
 	char *lib_name;     /* library name: libc.so. */
 	char *path_lib;     /* full library path: /usr/lib64/libc.so. */
 	int count;
@@ -436,7 +434,7 @@ out0:
 static int dump_elf(int fd, const char *file, khash_t(lib) *seen_list,
 	uint64_t *rel_amnt)
 {
-	struct open_elf op_elf;
+	struct open_elf op_elf = {0};
 	GElf_Shdr shdr;
 	Elf_Scn *scn;
 	int ret;
@@ -609,7 +607,7 @@ out:
 static int do_check(const char *path, const struct stat *info,
 	const int typeflag, struct FTW  *pathinfo)
 {
-	int fd;
+	((void)pathinfo);
 
 	/* Ignore everything that is not a file or is empty. */
 	if (typeflag != FTW_F || !info->st_size)
