@@ -365,8 +365,8 @@ static void sig_handler(int sig)
 int main(int argc, char **argv)
 {
 	struct epoll_event ev, events[3];
+	uint8_t ret_buff[4];
 	struct run_data rd;
-	char ret_buff[4];
 	char **new_argv;
 	int new_argc;
 	ssize_t amnt;
