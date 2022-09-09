@@ -62,6 +62,7 @@ ARCH ?= $(shell cat .cache 2>/dev/null || \
 
 OBJ =  preloader.o ipc.o util.o log.o load.o reaper.o arch.o
 OBJ += arch/arch_$(ARCH).o arch/$(ARCH).o
+DEP = $(OBJ:.o=.d)
 
 # Phone targets
 .PHONY: tests finder install uninstall clean
@@ -76,12 +77,12 @@ endif
 all: libpreloader.so preloader_cli
 
 # C Files
-%.o: %.c
+%.o: %.c Makefile
 	@echo "  CC      $@"
-	$(Q)$(CC) $< $(CFLAGS) -c -o $@
+	$(Q)$(CC) $< -MMD -MP $(CFLAGS) -c -o $@
 
 # ASM Files
-%.o: %.S
+%.o: %.S Makefile
 	@echo "  CC      $@"
 	$(Q)$(CC) $< $(CFLAGS) -c -o $@
 
@@ -136,6 +137,7 @@ uninstall:
 clean:
 	$(RM) .cache
 	$(RM) $(OBJ)
+	$(RM) $(DEP)
 	$(RM) preloader_cli.o
 	$(RM) $(TESTS)/test.o
 	$(RM) $(UTILS)/finder.o
@@ -143,3 +145,5 @@ clean:
 	$(RM) $(CURDIR)/preloader_cli
 	$(RM) $(TESTS)/test
 	$(RM) $(UTILS)/finder
+
+-include $(DEP)
