@@ -22,9 +22,6 @@
  * SOFTWARE.
  */
 
-.section .bss
-.lcomm new_argc, 4
-
 /*
  * This is the preloader's main entrypoint
  *
@@ -41,35 +38,37 @@
 arch_pre_daemon_main:
 	push {fp, lr}
 	add  fp, sp, #0
+	sub  sp, sp, #8
 
 	@ Backup atexit pointer
 	mov r4, a1
 
 	@ Call our daemon main
 	@ Return: returns cwd_argv in r0/a1
-	ldr a1, =new_argc
+	mov a1, sp @ sp[0] == old_argc
 	bl  daemon_main
 	mov r5, a1 @ Backup our cwd_argv
 
 	@ Grab our old argc and compare to the new one
 	@ Our stack:
-	@ 12(sp) -> argv
-	@  8(sp) -> argc
-	@  4(sp) -> ret_addr/lr
-	@  0(sp) -> fp
-	ldr a1, [sp, #8]
-	ldr a2, =new_argc
-	ldr a2, [a2]
+	@ 20(sp) -> argv
+	@ 16(sp) -> argc
+	@ 12(sp) -> ret_addr/lr
+	@  8(sp) -> fp
+	@  4(sp) -> nothing
+	@  0(sp) -> new_argc
+	ldr a1, [sp, #16]
+	ldr a2, [sp, #0]
 	mov r6, a2    @ tmp backup of our new_argc
 	bl  arch_validate_argc
 
 	@ Change argc
-	str r6, [sp, #8]
+	str r6, [sp, #16]
 
 	@ Change argv
 	mov a1, r6      @ new_argc
 	mov a2, r5      @ cwd_argv
-	add a3, sp, #12 @ sp[IDX_ARGV]
+	add a3, sp, #20 @ sp[IDX_ARGV]
 	bl  arch_change_argv
 
 	@ Restore original entry point content
