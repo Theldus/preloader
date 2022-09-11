@@ -23,6 +23,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <sys/auxv.h>
@@ -36,6 +37,12 @@
 
 /* Environment variables pointer. */
 extern char **environ;
+
+/* Private auxiliary vector. */
+static struct auxv_t {
+	unsigned long type;
+	unsigned long value;
+} *auxv = NULL;
 
 /**
  *
@@ -63,6 +70,55 @@ static int make_rwx(uintptr_t p, size_t min_size)
 }
 
 /**
+ * @brief Create a local copy of the auxiliary-vector.
+ *
+ * The old approach (reading from /proc/self/auxv) is not
+ * always feasible: qemu-user shares the same /proc/self/auxv
+ * pointer with the one obtained from main(), which implies
+ * that auxv (even via /proc) can be changed when via qemu-user.
+ *
+ * To work around this, it's best to back up the auxv before
+ * changing it, and then use the local copy instead of the one
+ * provided by libc.
+ */
+static void init_local_auxv(void)
+{
+	size_t cur_size;
+	ssize_t r;
+	char *a;
+	int fd;
+
+	#define READ_SIZE 512
+
+	cur_size = READ_SIZE;
+
+	fd = open("/proc/self/auxv", O_RDONLY);
+	if (fd < 0)
+		die("No /proc/self/auxv available, giving up...\n");
+
+	auxv = calloc(1, READ_SIZE);
+	if (!auxv)
+	{
+		close(fd);
+		die("Unable to allocated auxv!\n");
+	}
+
+	a = (char*)auxv;
+
+	while ((r = read(fd, a, READ_SIZE)) == READ_SIZE)
+	{
+		a = realloc(auxv, cur_size + READ_SIZE);
+		if (!a)
+			die("Unable to realloc auxv!\n");
+
+		auxv      = (struct auxv_t *)a;
+		a        += cur_size;
+		cur_size += READ_SIZE;
+	}
+	close(fd);
+}
+
+/**
  * @brief Retrieve a value from the auxiliary vector
  *
  * @param type Type to be retrieved.
@@ -80,36 +136,20 @@ static int make_rwx(uintptr_t p, size_t min_size)
  * getauxval() by replacing the original with another of
  * the same signature, which reads data directly from
  * /proc/self/auxv, which should always work.
- *
- * Reading from /proc/sef/auxv for each invocation of
- * this function is far from ideal, but I believe this
- * function will not be invoked multiple times to the
- * point where it becomes a bottleneck. If this happens,
- * please let me know.
  */
 __attribute__((visibility("default")))
 unsigned long getauxval(unsigned long type)
 {
-	unsigned long ret;
-	uintptr_t aux[2];
-	ssize_t r;
-	int fd;
+	struct auxv_t *a;
 
-	fd = open("/proc/self/auxv", O_RDONLY);
-	if (fd < 0)
-		return (0);
+	if (!auxv)
+		init_local_auxv();
 
-	ret = 0;
-	while ((r = read(fd, &aux, sizeof aux)) > 0)
-	{
-		if (aux[0] != type)
-			continue;
+	for (a = auxv; a->type; a++)
+		if (a->type == type)
+			return (a->value);
 
-		ret = aux[1];
-		break;
-	}
-	close(fd);
-	return (ret);
+	return (0);
 }
 
 /**
