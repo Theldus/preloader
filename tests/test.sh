@@ -75,6 +75,7 @@ test1() {
 	# Second:
 	# 1) Launch preloader in daemon mode
 	$PROG $TEST -d "$flags"
+	sleep 2s # Wait for daemon start
 
 	# 2) Run preloader client
 	echo "some input to test stdin" | $CLI $TEST a b c d \
@@ -110,6 +111,7 @@ test2() {
 
 	# 1) Launch preloader in daemon mode
 	$PROG $TEST -d "$flags"
+	sleep 2s # Wait for daemon start
 
 	# Loop through each amount of args
 	for i in $(seq 1 $MAX)
