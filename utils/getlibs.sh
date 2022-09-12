@@ -33,9 +33,9 @@ getlibs() {
 	shift # '$@' should contain only the program+args
 
 	TMPFOLDER="../.dump_$(date +%s%N)"
-	mkdir $TMPFOLDER
+	mkdir "$TMPFOLDER"
 
-	BIN="$(basename $1)"
+	BIN="$(basename "$1")"
 
 	strace -ff -o "$TMPFOLDER/dump_$BIN" "$@"
 
@@ -53,13 +53,13 @@ getlibs() {
 	grep -Pr \
 		"open(at)?\((AT_FDCWD, )?\".+\.so(\.[0-9]+)*\", O_RDONLY\|O_CLOEXEC\) = [^-]" "$TMPFOLDER" \
 		| cut -d'"' -f2 \
-		| sort -u > $OUTPUT_FILE
+		| sort -u > "$OUTPUT_FILE"
 
-	rm -rf $TMPFOLDER
+	rm -rf "$TMPFOLDER"
 }
 
 usage() {
-	printf "Usage: $SCRIPT_NAME -o output.txt <program-name-or-path> "
+	printf "Usage: %s -o output.txt <program-name-or-path> " "$SCRIPT_NAME"
 	printf "<program parameters>\n"
 	exit 1
 }

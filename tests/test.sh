@@ -34,18 +34,18 @@ CLI=$(readlink -f "$CURDIR/../preloader_cli")
 TEST="$CURDIR/test"
 
 announce() {
-	printf "Test $1: "
+	printf "Test %s: " "$1"
 }
 
 not_pass() {
 	$PROG -s
-	printf "[%bNOT PASSED%b]\nReason: $2\n" $RED $NC >&2
+	printf "[%bNOT PASSED%b]\nReason: $2\n" "$RED" "$NC" >&2
 	exit 1
 }
 
 pass() {
 	$PROG -s
-	printf "[%bPASSED%b]\n" $GREEN $NC
+	printf "[%bPASSED%b]\n" "$GREEN" "$NC"
 	rm -rf "$CURDIR/.out_normal.txt"
 	rm -rf "$CURDIR/.out_cli.txt"
 }
@@ -74,11 +74,11 @@ test1() {
 
 	# Second:
 	# 1) Launch preloader in daemon mode
-	$PROG $TEST -d "$flags"
+	$PROG "$TEST" -d "$flags"
 	sleep 2s # Wait for daemon start
 
 	# 2) Run preloader client
-	echo "some input to test stdin" | $CLI $TEST a b c d \
+	echo "some input to test stdin" | $CLI "$TEST" a b c d \
 		&> "$CURDIR/.out_cli.txt"
 	out_c="$?"
 
@@ -110,7 +110,7 @@ test2() {
 	announce "$2"
 
 	# 1) Launch preloader in daemon mode
-	$PROG $TEST -d "$flags"
+	$PROG "$TEST" -d "$flags"
 	sleep 2s # Wait for daemon start
 
 	# Loop through each amount of args
@@ -129,7 +129,7 @@ test2() {
 		done
 
 		# Run
-		echo "input" | $CLI $TEST "${args[@]}" &> /dev/null
+		echo "input" | $CLI "$TEST" "${args[@]}" &> /dev/null
 		out_c="$?"
 
 		if [ "$out_c" -ne 42 ]; then

@@ -47,7 +47,7 @@ start() {
 				echo "try again!" >&2
 				exit 1
 			else
-				PRELOADER="$(readlink -f $CURDIR/../lib/$LIBNAME)"
+				PRELOADER="$(readlink -f "$CURDIR"/../lib/$LIBNAME)"
 			fi
 		fi
 	fi
@@ -58,8 +58,8 @@ start() {
 	if [ -r "$pid_file" ]; then
 
 		# and the process still running
-		pid="$(cat $pid_file)"
-		if kill -s 0 $pid &> /dev/null; then
+		pid="$(cat "$pid_file")"
+		if kill -s 0 "$pid" &> /dev/null; then
 			echo "Error: There is a daemon running with pid $pid"   >&2
 			echo "please kill it first or run in another port (-p)" >&2
 			exit 1
@@ -86,9 +86,9 @@ stop() {
 		exit 1
 	fi
 
-	pid="$(cat $pid_file)"
+	pid="$(cat "$pid_file")"
 
-	kill $pid &> /dev/null
+	kill "$pid" &> /dev/null
 
 	if [ "$?" -eq 1 ]; then
 		echo "Unable to kill daemon with PID $pid, maybe the daemon is" >&2
@@ -217,7 +217,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if we should stop
-if [ ! -z "$STOP_DAEMON" ]; then
+if [ -n "$STOP_DAEMON" ]; then
 	stop
 fi
 
