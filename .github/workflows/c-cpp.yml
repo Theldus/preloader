@@ -32,3 +32,31 @@ jobs:
       run: CC=aarch64-linux-gnu-gcc QEMU_LD_PREFIX=/usr/aarch64-linux-gnu make tests
     - name: Confirm arch
       run: file libpreloader.so preloader_cli tests/test
+      
+  i386_build:
+    name: i386 Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Install deps
+      run: sudo apt-get install -y gcc-i686-linux-gnu
+    - name: Build & Tests
+      run: CC=i686-linux-gnu-gcc make tests
+    - name: Confirm arch
+      run: file libpreloader.so preloader_cli tests/test
+      
+  arm32_build:
+    name: ARM32 Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Install deps
+      run: sudo apt-get install -y gcc-arm-linux-gnu-eabi qemu-user-static binfmt-support
+    - name: Build & Tests
+      run: CC=arm-linux-gnueabi-gcc QEMU_LD_PREFIX=/usr/arm-linux-gnueabi make tests
+    - name: Confirm arch
+      run: file libpreloader.so preloader_cli tests/test
