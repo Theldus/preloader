@@ -33,10 +33,15 @@
 #error "This file should be built for x86_64-only targets!"
 #endif
 
-/**/
+/* Entry point address. */
 static uintptr_t arch_addr_start;
 
-/**/
+/*
+ * Patch instructions that will be injected on
+ * _start, in order to call arch_pre_daemon_main().
+ *
+ * @note: RDX should be preserved.
+ */
 static uint8_t patch[] = {
 	/* movabs $imm64, %rax. */
 	0x48, 0xb8,
@@ -45,11 +50,15 @@ static uint8_t patch[] = {
 	0xff, 0xd0
 };
 
-/**/
+/* Backup of original instructions at the beginning
+ * of start. */
 static uint8_t bck_start[sizeof patch] = {0};
 
 /**
+ * @brief Restore original instructions saved in bck_start.
  *
+ * @return Returns the amount needed to be decremented
+ * in order to fix the return address.
  */
 size_t arch_restore_start(void) {
 	memcpy((char*)arch_addr_start, bck_start, sizeof bck_start);
@@ -57,7 +66,9 @@ size_t arch_restore_start(void) {
 }
 
 /**
+ * @brief Patch _start in order to call arch_pre_daemon_main().
  *
+ * @return Always 0.
  */
 int arch_patch_start(uintptr_t start)
 {

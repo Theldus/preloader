@@ -50,7 +50,7 @@
  * This is the preloader's main entrypoint
  *
  * Register usage:
- * esi: atexit_ptr/%rdx backup
+ * esi: atexit_ptr/%edx backup
  * edi: cwd_argv
  * everything else: tmp values/args
  */

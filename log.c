@@ -34,7 +34,13 @@ static const char dev_null[] = "/dev/null";
 static struct args *args;
 
 /**
+ * @brief Initialize the log system for a given log-level log file
+ * and log file provided in the programa arguments @p a.
  *
+ * @param a Program arguments, containing the log info required
+ *          to initialize the log-level.
+ *
+ * @return Returns 0 if success, -1 otherwise.
  */
 int log_init(struct args *a)
 {
@@ -59,7 +65,7 @@ int log_init(struct args *a)
 }
 
 /**
- *
+ * @brief Close all resources used during the logging.
  */
 void log_close(void)
 {
@@ -72,7 +78,13 @@ void log_close(void)
 }
 
 /**
+ * @brief Logs a formatted message provided in @p fmt, for a
+ * given log level @p l, into the already specified output.
  *
+ * @param l Log level.
+ * @param fmt Formatted string to be logged into the screen,
+ *            or file.
+ * @param ap va_list containing the arguments.
  */
 static void log_msg(int l, const char *fmt, va_list ap)
 {
@@ -86,7 +98,10 @@ static void log_msg(int l, const char *fmt, va_list ap)
 }
 
 /**
+ * @brief Logs a formatted message @p fmt as an info-message
+ * into the already defined output.
  *
+ * @param fmt Formatted message.
  */
 void log_info(const char *fmt, ...)
 {
@@ -99,7 +114,10 @@ void log_info(const char *fmt, ...)
 }
 
 /**
+ * @brief Logs a formatted message @p fmt as an error-message
+ * into the already defined output.
  *
+ * @param fmt Formatted message.
  */
 void log_err(const char *fmt, ...)
 {
@@ -112,7 +130,12 @@ void log_err(const char *fmt, ...)
 }
 
 /**
+ * @brief Logs a formatted message @p fmt as a critical-message
+ * into the already defined output.
  *
+ * @param fmt Formatted message.
+ *
+ * @note Critical messages cannot be omitted.
  */
 void log_crit(const char *fmt, ...)
 {

@@ -88,7 +88,18 @@ static inline int32_t msg_to_int32(uint8_t *msg)
 }
 
 /**
+ * @brief Sends a buffer @p buff of length @p len to the
+ * connection specified in @p conn.
  *
+ * This routine differs from send() as it guarantees that
+ * all bytes are sent.
+ *
+ * @param conn Target receiver.
+ * @param buff Buffer to be sent.
+ * @param len Buffer length.
+ * @param flags Additional flags.
+ *
+ * @return If success, returns 0, otherwise, -1.
  */
 static ssize_t send_all(
 	int conn, const void *buf, size_t len, int flags)
@@ -112,7 +123,8 @@ static ssize_t send_all(
 }
 
 /**
- *
+ * Structure that holds all data that should be initially
+ * send to the server.
  */
 struct run_data
 {
@@ -122,7 +134,15 @@ struct run_data
 };
 
 /**
+ * @brief Prepare the initial data that should be sent to the
+ * server and saves into @p rd.
  *
+ * @param rd Structure that holds the data to be sent.
+ * @param argc Argument count.
+ * @param argv Argument list.
+ *
+ * @return If success, returns the amount of bytes to be sent,
+ * otherwise, returns -1.
  */
 static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
 {
@@ -164,11 +184,11 @@ static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
 /**
  * Safe string-to-int routine that takes into account:
  * - Overflow and Underflow
- * - No undefined behaviour
+ * - No undefined behavior
  *
  * Taken from https://stackoverflow.com/a/12923949/3594716
  * and slightly adapted: no error classification, because
- * I dont need to know, error is error.
+ * I don't need to know, error is error.
  *
  * @param out Pointer to integer.
  * @param s String to be converted.
@@ -197,7 +217,9 @@ static int str2int(int *out, const char *s)
 }
 
 /**
+ * @brief Program usage.
  *
+ * @param prgname Program name.
  */
 static void usage(const char *prgname)
 {
@@ -211,7 +233,13 @@ static void usage(const char *prgname)
 }
 
 /**
+ * @brief Parse command-line arguments.
  *
+ * @param new_argc New argument counter.
+ * @param argv Old argument list.
+ * @param port Port to be connected.
+ *
+ * @return Returns the new argument list.
  */
 static char **parse_args(int *new_argc, char **argv, int *port)
 {
@@ -283,7 +311,13 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 }
 
 /**
+ * @brief Connect to a given port @p port (localhost) and
+ * saves the socket into @p sock.
  *
+ * @param port Port to be connect.
+ * @param sock Returned socket pointer.
+ *
+ * @return Returns 0 if success, -1 otherwise.
  */
 static int do_connect(uint16_t port, int *sock)
 {
@@ -304,7 +338,12 @@ static int do_connect(uint16_t port, int *sock)
 }
 
 /**
+ * @brief For a given event @p evt, check if there is
+ * an epoll error.
  *
+ * @param evt Epoll event.
+ *
+ * @return Returns 0 if success, 1 if error.
  */
 static inline int epoll_event_error(uint32_t evt)
 {
@@ -317,7 +356,15 @@ static inline int epoll_event_error(uint32_t evt)
 }
 
 /**
+ * @brief Handle an epoll event.
  *
+ * For a given epoll event @p ev, reads up to (sizeof buff)
+ * bytes and then send it back to @p out_fd.
+ *
+ * @param ev Epoll event.
+ * @param out_fd Output file descriptor to send the input msg.
+ * @param is_sock Flag that signals if the input fd is a sock
+ *                or not.
  *
  * @return Returns 0 if success, -1 if error (including EOF).
  */
@@ -351,7 +398,13 @@ static int handle_epoll_event(struct epoll_event *ev, int out_fd,
 }
 
 /**
+ * @brief Client signal handler.
  *
+ * Since the client needs to behave transparently, as if
+ * it were the original process, all signals that the
+ * client receives are forwarded to the original process.
+ *
+ * @param sig Signal received.
  */
 static void sig_handler(int sig)
 {
@@ -359,27 +412,25 @@ static void sig_handler(int sig)
 		kill(process_pid, sig);
 }
 
-/**
- *
- */
+/* Main routine. */
 int main(int argc, char **argv)
 {
-	struct epoll_event ev, events[3];
-	uint8_t ret_buff[4];
-	struct run_data rd;
-	char **new_argv;
-	int new_argc;
-	ssize_t amnt;
-	int32_t ret;
-	int nfds;
-	int port;
-	int i;
+	struct epoll_event ev, events[3]; /* Epoll events. */
+	uint8_t ret_buff[4]; /* Generic buffer to I/O.     */
+	struct run_data rd;  /* Data to be sent to the server. */
+	char **new_argv;     /* New argument list.          */
+	int new_argc;        /* New argument count.         */
+	ssize_t amnt;        /* Amount of bytes to be sent. */
+	int32_t ret;         /* Generic int32_t to I/O.     */
+	int nfds;            /* Number of fds with events.  */
+	int port;            /* Main server/control port.   */
+	int i;               /* Loop index.                 */
 
-	int sock;
-	int sock_stdout;
-	int sock_stderr;
-	int sock_stdin;
-	int closed_fds;
+	int sock;            /* Control socket fd.    */
+	int sock_stdout;     /* Stdout socket.        */
+	int sock_stderr;     /* Stderr socket.        */
+	int sock_stdin;      /* Stdin socket.         */
+	int closed_fds;      /* Number of closed fds. */
 
 	closed_fds = 0;
 	ret = 42;

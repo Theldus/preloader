@@ -32,7 +32,6 @@
 	#define COMPILE_TIME_ASSERT(expr)  \
 		switch(0){case 0:case expr:;}
 
-	extern int64_t time_ms(void);
 	extern int read_and_check_pid(const char *pid_file, int port);
 	extern int create_pid(const char *pid_file, int port);
 	extern int str2int(int *out, const char *s);

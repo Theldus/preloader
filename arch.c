@@ -45,6 +45,17 @@ static struct auxv_t {
 } *auxv = NULL;
 
 /**
+ * @brief For a given address @p p and minimal given
+ * size @p min_size, makes the region Read/Write/
+ * Executable.
+ *
+ * This is needed in order to inject our own code
+ * into the main entry point..
+ *
+ * @param p Target address.
+ * @param min_size Minimal size.
+ *
+ * @return Returns 0 if success, -1 if error.
  *
  */
 static int make_rwx(uintptr_t p, size_t min_size)
@@ -153,7 +164,12 @@ unsigned long getauxval(unsigned long type)
 }
 
 /**
+ * @brief Replace the old argv (1..200) for the one supplied
+ * in the preloader_cli in the new-forked process.
  *
+ * @param argc Amount of arguments.
+ * @param cwd_argv Argument list.
+ * @param sp Stack pointer pointing to the first argv element.
  */
 void arch_change_argv(int argc, char *cwd_argv, uintptr_t *sp)
 {
@@ -206,7 +222,13 @@ void arch_change_argv(int argc, char *cwd_argv, uintptr_t *sp)
 }
 
 /**
+ * @brief Given @p old_argc and @p new_argc, validates if the
+ * @p new_argc is lesser than @p old_argc, i.e: if the new
+ * argument list fits in our old argument list.
  *
+ * @param old_argc Old argument count (e.g: 1..200).
+ * @param new_argc New argument count received from
+ *                 preloader_cli.
  */
 void arch_validate_argc(int old_argc, int new_argc)
 {
@@ -216,7 +238,9 @@ void arch_validate_argc(int old_argc, int new_argc)
 }
 
 /**
- *
+ * @brief Initialize arch-related things: retrieves
+ * the program entry-point, make it RWX and patch-it
+ * with a call to arch_pre_daemon_main().
  */
 void arch_setup(void)
 {

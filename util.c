@@ -36,17 +36,14 @@
 #include "util.h"
 
 /**
+ * @brief Given a @p pid_path and @p port, return the string
+ * containing the full path for the pid file.
  *
- */
-int64_t time_ms(void)
-{
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (int64_t)tv.tv_sec * 1000 + tv.tv_usec/1000;
-}
-
-/**
+ * @param pid_path PID path folder
+ * @param port Main/control port.
  *
+ * @return If success, return the path for the pid file,
+ * otherwise, returns NULL.
  */
 static char* get_pid_file_path(const char *pid_path, int port)
 {
@@ -59,7 +56,11 @@ static char* get_pid_file_path(const char *pid_path, int port)
 }
 
 /**
+ * @brief Read the current PID file (if any) and check
+ * if there is a process running for the read pid.
  *
+ * @param pid_path PID path folder.
+ * @param port Main/control port.
  *
  * @return Returns 0 if and only if there is a process
  * already running for the saved pid_file. In this case,
@@ -121,7 +122,12 @@ err0:
 }
 
 /**
+ * @brief Create a pid file for a given @p pid_path and @p port.
  *
+ * @param pid_path PID path folder.
+ * @param port Main/control port.
+ *
+ * @return Returns 0 if success, -1 otherwise.
  */
 int create_pid(const char *pid_path, int port)
 {
@@ -144,11 +150,11 @@ int create_pid(const char *pid_path, int port)
 /**
  * Safe string-to-int routine that takes into account:
  * - Overflow and Underflow
- * - No undefined behaviour
+ * - No undefined behavior
  *
  * Taken from https://stackoverflow.com/a/12923949/3594716
  * and slightly adapted: no error classification, because
- * I dont need to know, error is error.
+ * I don't need to know, error is error.
  *
  * @param out Pointer to integer.
  * @param s String to be converted.

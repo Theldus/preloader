@@ -41,7 +41,8 @@ static int stdin_fd;
 #define TIMEOUT_MS 128
 
 /**
- *
+ * Structure that holds network-related data in order to
+ * read an arbitrary amount of bytes from the client.
  */
 struct net_data
 {
@@ -78,7 +79,7 @@ static inline int32_t msg_to_int32(uint8_t *msg)
  * @brief Given a 32-bit message, encodes the content
  * to be sent.
  *
- * @param msg
+ * @param msg Message to be encoded.
  * @param msg Target buffer.
  */
 static inline void int32_to_msg(int32_t msg, uint8_t *msg_buff)
@@ -97,9 +98,6 @@ static inline void int32_to_msg(int32_t msg, uint8_t *msg_buff)
  * @param nd Websocket Frame Data.
  *
  * @return Returns the byte read, or -1 if error.
- *
- * @attention This is part of the internal API and is documented just
- * for completeness.
  */
 static inline int next_byte(struct net_data *nd)
 {
@@ -120,7 +118,11 @@ static inline int next_byte(struct net_data *nd)
 }
 
 /**
+ * @brief Puts the server to listen for a given port
+ * @p port.
  *
+ * @param port Port to be listened.
+ * @param fd Returned file descriptor.
  */
 static void listen_port(uint16_t port, int *fd)
 {
@@ -152,7 +154,11 @@ static void listen_port(uint16_t port, int *fd)
 }
 
 /**
+ * @brief Check for error on a given pollfd.
  *
+ * @param p Pollfd to be checked.
+ *
+ * @return Returns 0 if success, 1 otherwise.
  */
 static inline int event_error(struct pollfd *p)
 {
@@ -165,7 +171,19 @@ static inline int event_error(struct pollfd *p)
 }
 
 /**
+ * @brief Given a file descriptor @p fd and a timeout
+ * @p timeout_ms, waits up to @p timeout_ms for a
+ * connection or give up.
  *
+ * This is used to wait for the file descriptors belonging
+ * to I/O: stdout, stderr and stdin, since a client might
+ * not never connect to them and then, hangs the server.
+ *
+ * @param fd Target fd to wait for an accept.
+ * @param timeout_ms Timeout (in milliseconds) to wait.
+ *
+ * @return If success, returns the accepted fd. On error
+ * or timeout, returns -1.
  */
 static int accept_timeout(int fd, int timeout_ms)
 {
@@ -189,7 +207,10 @@ static int accept_timeout(int fd, int timeout_ms)
  * ==================================================================*/
 
 /**
+ * @brief Listen to all ports given an initial
+ * port @p port.
  *
+ * @return Always 0.
  */
 int ipc_init(int port)
 {
@@ -201,7 +222,7 @@ int ipc_init(int port)
 }
 
 /**
- *
+ * @brief Releases all IPC resources.
  */
 void ipc_finish(void)
 {
@@ -209,7 +230,9 @@ void ipc_finish(void)
 }
 
 /**
+ * @brief Wait for a new connection (no timeout).
  *
+ * @return Returns the client file descriptor.
  */
 int ipc_wait_conn(void)
 {
@@ -227,7 +250,11 @@ int ipc_wait_conn(void)
 }
 
 /**
+ * @brief Wait for all I/O sockets to establish a connection,
+ * each of them with TIMEOUT_MS.
  *
+ * @return Returns 0 if all of them are connected, -1 if one
+ * of them were not able to connect in time.
  */
 int ipc_wait_fds(int *out, int *err, int *in)
 {
@@ -242,7 +269,17 @@ int ipc_wait_fds(int *out, int *err, int *in)
 }
 
 /**
+ * @brief Receives the main control-message from the client,
+ * containing: argc count, current work dir, and argument
+ * list.
  *
+ * @param conn Connection file descriptor.
+ * @param argc_p Argument count pointer.
+ *
+ * @return On success, returns a NUL-separated string
+ * containing: CWD NUL argv[0] NUL argv[1] NUL ...
+ *             argv[argc-1] NUL.
+ * On error, returns NULL.
  */
 char *ipc_recv_msg(int conn, int *argc_p)
 {
@@ -315,6 +352,8 @@ err0:
 }
 
 /**
+ * @brief For a given int32_t @p value, send to the
+ * socket pointed by @p fd.
  *
  * @return Returns 1 if success, 0 otherwise.
  */
@@ -326,7 +365,8 @@ int ipc_send_int32(int32_t value, int fd)
 }
 
 /**
- *
+ * Closes an arbitrary amount of file descriptors
+ * specified in @p num.
  */
 void ipc_close(int num, ...)
 {

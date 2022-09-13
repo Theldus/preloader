@@ -43,7 +43,7 @@
 #endif
 
 /**
- *
+ * Preloader arguments.
  */
 struct args args = {
 	.port      = SV_DEFAULT_PORT,
@@ -55,7 +55,16 @@ struct args args = {
 };
 
 /**
+ * @brief Setup most of the things that should be done before
+ * our child/real process execute.
  *
+ * @param conn_fd Main connection socket fd.
+ * @param stdout_fd Stdout socket fd.
+ * @param stderr_fd Stderr socket fd.
+ * @param stdin_fd Stdin socket fd.
+ * @param cwd_argv Current work dir + argument list.
+ *
+ * @return Returns the new argv the child process should have.
  */
 static char* setup_child(int conn_fd, int stdout_fd, int stderr_fd,
 	int stdin_fd, char *cwd_argv)
@@ -90,7 +99,20 @@ static char* setup_child(int conn_fd, int stdout_fd, int stderr_fd,
 }
 
 /**
+ * @brief *This* is where occurs the main loop.
  *
+ * daemon_main() is responsible to accept connections, receive
+ * its arguments, fork a new process (to be normally executed)
+ * and the proceeds to handle a next connection.
+ *
+ * @param argc Argument count pointer, this is the new child
+               argc.
+ *
+ * @return Returns the new argv the child process should have.
+ *
+ * @note This routine is called from arch_pre_daemon_main(),
+ * where the new argc/argv are actually changed, when this
+ * function returns.
  */
 char* daemon_main(int *argc)
 {
@@ -138,7 +160,7 @@ char* daemon_main(int *argc)
 }
 
 /**
- *
+ * @brief Parse the preloader arguments through env vars
  */
 static void parse_args(void)
 {
@@ -190,7 +212,7 @@ static void parse_args(void)
 }
 
 /**
- *
+ * @brief Preloader's signal handler
  */
 static void sig_handler(int sig)
 {
@@ -206,7 +228,7 @@ static void sig_handler(int sig)
 }
 
 /**
- *
+ * @brief Creates a 'daemon' process.
  */
 static void daemonize(void)
 {
@@ -224,7 +246,7 @@ static void daemonize(void)
 }
 
 /**
- *
+ * @brief Preloader library entrypoint
  */
 void __attribute__ ((constructor)) my_init(void)
 {

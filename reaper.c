@@ -30,7 +30,37 @@
 #include "ipc.h"
 #include "log.h"
 
-/**/
+/*
+ * What is the reaper?
+ * When a child process dies, it sends a SIGCHLD to the parent
+ * process, signaling that it has died.
+ *
+ * If the parent does nothing, the child becomes a zombie waiting
+ * for an ack from the parent. By accumulating multiple children
+ * with no response from the parent, a zombie horde forms and eats
+ * all your system resources, it's not cool.
+ *
+ * The parent process basically has 3 alternatives:
+ * - Ignore children's SIGCHLD, so the child process can rest
+ *   in peace without waiting for the parent.
+ *
+ * - Define a signal handler to asynchronously handle when a
+ *   child dies.
+ *
+ * - Stop execution and wait for the children to die (via wait()).
+ *
+ * The first option is not viable: the preloader *needs* to know
+ * when a child is terminated. The second option is too much work:
+ * the child can interrupt the parent at any time, which would fail
+ * to execute certain syscalls and etc. The third option is what
+ * the reaper uses: a dedicated thread (the 'reaper') waits for
+ * the children to die, and when it does, some action is taken.
+ *
+ * This way, the main thread can continue running peacefully without
+ * worrying about the children dying.
+ */
+
+/* Children list mutex. */
 static pthread_mutex_t list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Children list. */
@@ -46,7 +76,13 @@ static struct child_list
 } cl;
 
 /**
+ * @brief Given a pid @p pid, gets the position
+ * the child process occupies in the list.
  *
+ * @param pid Child pid.
+ *
+ * @return If success, returns a number greater
+ * than or equal 0. Otherwise, returns -1.
  */
 static off_t get_child_pos(pid_t pid)
 {
@@ -65,7 +101,17 @@ pthread_mutex_unlock(&list_mutex);
 }
 
 /**
+ * @brief Indefinitely waits for child processes to exit
+ * and/or die.
  *
+ * When a child process die, the reaper should get its
+ * exit code and then send to the appropriate client
+ * process. After that, the socket from the client
+ * can safely be closed, as well the resources allocated
+ * for the child.
+ *
+ * @param p Unused.
+ * @return Always NULL (unused too).
  */
 static void* wait_children(void *p)
 {
@@ -131,7 +177,7 @@ static void* wait_children(void *p)
 
 		ipc_close(1, cl.c[cpos].fd);
 
-	/* Set empty postion. */
+	/* Set empty position. */
 	pthread_mutex_lock(&list_mutex);
 		cl.c[cpos].fd = -1;
 		cl.last_empty = cpos;
@@ -142,7 +188,12 @@ static void* wait_children(void *p)
 }
 
 /**
+ * @brief As the children list is dynamically allocated,
+ * this function increases the list capacity.
  *
+ * @note This routine assumes that the list is safely
+ * protected against race conditions before it is called,
+ * as it does not use any kind of locks here.
  */
 static void increase_buffer(void)
 {
@@ -164,7 +215,10 @@ static void increase_buffer(void)
 }
 
 /**
+ * @brief Adds a new pid/fd pair into the children list.
  *
+ * @param pid PID pair to be added in the list.
+ * @param fd FD pair to be added.
  */
 void reaper_add_child(pid_t pid, int fd)
 {
@@ -200,7 +254,9 @@ pthread_mutex_unlock(&list_mutex);
 }
 
 /**
- *
+ * @brief Initialize all resources related to the reaper:
+ * - Allocate children list.
+ * - Start reaper thread.
  */
 void reaper_init(void)
 {
@@ -225,7 +281,8 @@ void reaper_init(void)
 }
 
 /**
- *
+ * @brief Deallocate all resources related to the reaper:
+ * - Children list.
  */
 void reaper_finish(void)
 {

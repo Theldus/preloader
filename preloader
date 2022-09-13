@@ -68,7 +68,19 @@ start() {
 	fi
 
 	#
-	# Obs:
+	# Obs: The argument list is fixed and defined here. The reason
+	# for this is simplicity. It is much simpler to define a large
+	# enough list of arguments and change it later than to allocate
+	# a new list later.
+	#
+	# Allocating a new list also entails allocating envp and auxv,
+	# which makes things unnecessarily more complicated. I prefer
+	# to set a maximum argument size and edit the argument list
+	# later.
+	#
+	# If for some reason the preloader_cli uses more than 200
+	# arguments, an error will be thrown in stderr indicating the
+	# exceeded amount of arguments and the daemon will stop.
 	#
 	LD_PRELOAD="$PRELOADER" "$1" {1..200}
 }

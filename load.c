@@ -30,7 +30,13 @@
 #include "log.h"
 
 /**
+ * @brief For a given file @p file, read a dynamic
+ * library for each line specified on it.
  *
+ * @param file File to be read, containing shared lib
+ * file paths, one per line.
+ *
+ * @return Always 0.
  */
 int load_file(const char *file)
 {
