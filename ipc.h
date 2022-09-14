@@ -25,6 +25,8 @@
 #ifndef IPC_H
 #define IPC_H
 
+	#include <stdint.h>
+
 	#define SV_DEFAULT_PORT 3636
 	#define SV_MAX_CLIENTS    16
 

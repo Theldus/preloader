@@ -25,11 +25,8 @@
 #ifndef LOG_H
 #define LOG_H
 
-	#include <stdio.h>
+	struct args;
 	#include <unistd.h>
-	#include <inttypes.h>
-
-	#include "preloader.h"
 
 	#define LOG_LVL_INFO 0
 	#define LOG_LVL_ERR  1

@@ -26,9 +26,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include <poll.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
 
 #include "ipc.h"
 #include "log.h"

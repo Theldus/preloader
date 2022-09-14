@@ -25,10 +25,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-	#include <stdio.h>
-	#include <unistd.h>
-	#include <inttypes.h>
-
 	#define COMPILE_TIME_ASSERT(expr)  \
 		switch(0){case 0:case expr:;}
 

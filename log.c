@@ -28,6 +28,7 @@
 #include <stdarg.h>
 
 #include "log.h"
+#include "preloader.h"
 
 static const char *log_string[] = {"info", "err", "crit"};
 static const char dev_null[] = "/dev/null";

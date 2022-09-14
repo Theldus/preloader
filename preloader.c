@@ -22,21 +22,21 @@
  * SOFTWARE.
  */
 
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
-#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
 
 #include "arch.h"
 #include "ipc.h"
-#include "log.h"
-#include "util.h"
 #include "load.h"
+#include "log.h"
+#include "preloader.h"
 #include "reaper.h"
+#include "util.h"
+
 
 #ifndef PID_PATH
 #define PID_PATH "/tmp"

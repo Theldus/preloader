@@ -25,6 +25,7 @@
 #ifndef ARCH_H
 #define ARCH_H
 
+	#include <stdint.h>
 	extern void arch_setup(void);
 	extern void arch_pre_daemon_main(void);
 	extern int arch_patch_start(uintptr_t start);

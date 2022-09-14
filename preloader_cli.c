@@ -27,14 +27,14 @@
 #include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
 
 #ifndef PRG_NAME
 #define PRG_NAME "preloader_cli"
