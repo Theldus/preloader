@@ -35,6 +35,7 @@
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #ifndef PRG_NAME
 #define PRG_NAME "preloader_cli"
@@ -398,6 +399,28 @@ static int handle_epoll_event(struct epoll_event *ev, int out_fd,
 }
 
 /**
+ * @brief Check if the file descriptor @p fd
+ * belongs to /dev/null.
+ *
+ * @param fd File Descriptor to be checked.
+ *
+ * @return Returns 1 if fd is /dev/null, 0
+ * otherwise.
+ */
+static int is_devnull(int fd)
+{
+	struct stat st_fd;
+	struct stat dev_null;
+	return (
+		fstat(fd, &st_fd) == 0 &&
+		S_ISCHR(st_fd.st_mode) &&
+		stat("/dev/null", &dev_null) == 0 &&
+		st_fd.st_dev == dev_null.st_dev &&
+		st_fd.st_ino == dev_null.st_ino
+	);
+}
+
+/**
  * @brief Client signal handler.
  *
  * Since the client needs to behave transparently, as if
@@ -503,9 +526,29 @@ int main(int argc, char **argv)
 		die("Unable to add stderr event!\n");
 
 	ev.data.fd = STDIN_FILENO;
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0 &&
-		errno != EPERM)
-		die("Unable to add stdin event!\n");
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
+	{
+		/*
+		 * epoll() is unable to read from regular file and
+		 * /dev/null. If /dev/null, we can close the socket
+		 * and everything should be fine, if not, we have
+		 * a problem...
+		 */
+		if (errno == EPERM)
+		{
+			if (!is_devnull(STDIN_FILENO))
+			{
+				die("%s is unable to read from stdin when it is "
+					"redirected from a file, please use a pipe!\n",
+					argv[0]);
+			}
+			else
+				/* Simulate an 'EOF'. */
+				close(sock_stdin);
+		}
+		else
+			die("Unable to add stdin event!\n");
+	}
 
 	/* Listen to our fds. */
 	while (1)
