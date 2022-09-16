@@ -30,14 +30,15 @@ MANPAGES = $(CURDIR)/doc/
 LIBDIR   = $(PREFIX)/lib
 
 # Flags
-CC     ?= gcc
-CFLAGS += -fPIC -O0 $(INCLUDE) -g -fvisibility=hidden -Wall -Wextra
-LDFLAGS = -shared
-LDLIBS  = -ldl -pthread
+CC       ?= gcc
+CFLAGS   += -O2 -g -Wall -Wextra
+PREFLAGS  = -fPIC $(INCLUDE) -fvisibility=hidden $(CFLAGS)
+LDFLAGS   = -shared
+LDLIBS    = -ldl -pthread
 
 # If TMPDIR exists, use it instead of /tmp
 ifneq ($(TMPDIR),)
-	CFLAGS += -DPID_PATH=\"$(TMPDIR)\"
+	PREFLAGS += -DPID_PATH=\"$(TMPDIR)\"
 endif
 
 #
@@ -79,32 +80,32 @@ all: libpreloader.so preloader_cli
 # C Files
 %.o: %.c Makefile
 	@echo "  CC      $@"
-	$(Q)$(CC) $< -MMD -MP $(CFLAGS) -c -o $@
+	$(Q)$(CC) $< -MMD -MP $(PREFLAGS) -c -o $@
 
 # ASM Files
 %.o: %.S Makefile
 	@echo "  CC      $@"
-	$(Q)$(CC) $< $(CFLAGS) -c -o $@
+	$(Q)$(CC) $< $(PREFLAGS) -c -o $@
 
 # Preloader
 libpreloader.so: $(OBJ)
 	@echo "  LD      $@"
-	$(Q)$(CC) $^ $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+	$(Q)$(CC) $^ $(PREFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
 
 # Client program
 preloader_cli.o: preloader_cli.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c -D "PRG_NAME=\"$(basename $@)\"" -Wall -Wextra
+	$(Q)$(CC) $^ -c -D "PRG_NAME=\"$(basename $@)\"" $(CFLAGS)
 preloader_cli: preloader_cli.o
 	@echo "  LD      $@"
-	$(Q)$(CC) $^ -O2 -o $@
+	$(Q)$(CC) $^ -o $@
 
 # Tests
 tests: libpreloader.so preloader_cli $(TESTS)/test
 	@bash "$(TESTS)/test.sh"
 $(TESTS)/test.o: $(TESTS)/test.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c -o $@ -Wall -Wextra
+	$(Q)$(CC) $^ -c -o $@ $(CFLAGS)
 $(TESTS)/test: $(TESTS)/test.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@
@@ -113,7 +114,7 @@ $(TESTS)/test: $(TESTS)/test.o
 finder: $(UTILS)/finder
 $(UTILS)/finder.o: $(UTILS)/finder.c
 	@echo "  CC      $@"
-	$(Q)$(CC) $^ -c -o $@ -O3 -Wall -Wextra
+	$(Q)$(CC) $^ -c -o $@ $(CFLAGS)
 $(UTILS)/finder: $(UTILS)/finder.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@ -lelf
