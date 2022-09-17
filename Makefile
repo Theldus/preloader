@@ -26,8 +26,9 @@ TESTS    = $(CURDIR)/tests
 UTILS    = $(CURDIR)/utils
 PREFIX  ?= /usr/local
 BINDIR   = $(PREFIX)/bin
-MANPAGES = $(CURDIR)/doc/
+MANPAGES = $(CURDIR)/doc/man1
 LIBDIR   = $(PREFIX)/lib
+MANDIR   = $(PREFIX)/man
 
 # Flags
 CC       ?= gcc
@@ -127,12 +128,15 @@ install: libpreloader.so preloader_cli
 	$(Q)install -d $(DESTDIR)$(BINDIR)
 	$(Q)install -m 755 preloader $(DESTDIR)$(BINDIR)
 	$(Q)install -m 755 preloader_cli $(DESTDIR)$(BINDIR)
+	$(Q)install -d $(DESTDIR)$(MANDIR)/man1
+	$(Q)install -m 644 $(MANPAGES)/*.1 $(DESTDIR)$(MANDIR)/man1
 
 # Uninstall
 uninstall:
 	$(RM) $(DESTDIR)$(LIBDIR)/libpreloader.so
 	$(RM) $(DESTDIR)$(BINDIR)/preloader
 	$(RM) $(DESTDIR)$(BINDIR)/preloader_cli
+	$(RM) $(DESTDIR)$(MANDIR)/man1/preloader_cli.1
 
 # Clean
 clean:

@@ -1,0 +1,63 @@
+.\" MIT License
+.\"
+.\" Copyright (c) 2022 Davidson Francis <davidsondfgl@gmail.com>
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining a copy
+.\" of this software and associated documentation files (the "Software"), to deal
+.\" in the Software without restriction, including without limitation the rights
+.\" to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+.\" copies of the Software, and to permit persons to whom the Software is
+.\" furnished to do so, subject to the following conditions:
+.\"
+.\" The above copyright notice and this permission notice shall be included in all
+.\" copies or substantial portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+.\" AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+.\" LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+.\" OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+.\" SOFTWARE.
+.\"
+.TH "preloader_cli" "1" "" "" "preloader man page"
+.SH NAME
+preloader_cli \- launches a preloaded program
+.SH SYNOPSIS
+\fBpreloader_cli\fR [\fB-p\fR \fIPORT\fR] <program> <program-arguments>
+.SH DESCRIPTION
+\fBpreloader_cli\fR connects to the
+.BR preloader (1)
+server and asks the server to run the preloaded process with the parameters
+given in the \fBpreloader_cli\fR.
+.PP
+A port can be specified optionally, in case the server runs on a port other
+than the default one (3636).
+.SH OPTIONS
+.TP
+\fB\-p\fR \fIPORT\fR
+Specifies a port other than the default port to connect to the server
+.SH NOTES
+.PP
+\fBpreloader_cli\fR is unable to read from stdin if it comes from a file
+(except for /dev/null). If this is the case, please use pipes.
+.SH BUGS
+.PP
+No known bugs.
+.SH EXAMPLES
+Preload a process \fIfoo\fR in daemon mode and then, execute \fIfoo\fR
+through the client with arguments: a, b, and c. After that, stops the daemon.
+.PP
+.nf
+.RS
+$ preloader -d foo
+$ preloader_cli foo a b c
+$ preloader -s
+.RE
+.fi
+.SH AUTHOR
+.PP
+Written by Davidson Francis (davidsondfgl@gmail.com), see
+\fIcontributors\fR page in github.com/Theldus/preloader for more details.
+.SH SEE ALSO
+.BR preloader (1)
