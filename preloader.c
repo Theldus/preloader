@@ -91,7 +91,8 @@ static char* setup_child(int conn_fd, int stdout_fd, int stderr_fd,
 	setvbuf(stdout, NULL, _IOLBF, 0);
 
 	/* Set the current directory. */
-	chdir(cwd_argv);
+	if (chdir(cwd_argv) < 0)
+		die("Unable to chdir to: %s, aborting...\n", cwd_argv);
 
 	/* Restore default signal handler. */
 	signal(SIGTERM, SIG_DFL);
