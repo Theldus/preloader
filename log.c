@@ -56,7 +56,9 @@ int log_init(struct args *a)
 	if (!args->log_file)
 		args->log_file = (char*)dev_null;
 
-	args->log_fd = open(args->log_file, O_WRONLY|O_APPEND|O_CREAT);
+	args->log_fd = open(args->log_file, O_WRONLY|O_APPEND|O_CREAT,
+		0644);
+
 	if (args->log_fd < 0)
 	{
 		args->log_fd = STDERR_FILENO;
