@@ -24,7 +24,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifndef __UCLIBC__
 #include <sys/auxv.h>
+#endif
 
 static char expected_char = 'a';
 
@@ -87,7 +90,9 @@ int main(int argc, char **argv)
 	printf("PWD: (%s)\n", getenv("PWD"));
 
 	/* Get some aux val to make sure they're accessible too. */
+#ifndef __UCLIBC__
 	printf("AT_PAGESZ: %lu\n", getauxval(AT_PAGESZ));
+#endif
 
 	/* Return some number. */
 	return (42);

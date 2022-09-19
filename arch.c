@@ -25,7 +25,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+
+#ifndef __UCLIBC__
 #include <sys/auxv.h>
+#else
+#define AT_ENTRY 9
+#endif
+
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
