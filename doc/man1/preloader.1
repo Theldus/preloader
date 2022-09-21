@@ -1,0 +1,125 @@
+.\" MIT License
+.\"
+.\" Copyright (c) 2022 Davidson Francis <davidsondfgl@gmail.com>
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining a copy
+.\" of this software and associated documentation files (the "Software"), to deal
+.\" in the Software without restriction, including without limitation the rights
+.\" to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+.\" copies of the Software, and to permit persons to whom the Software is
+.\" furnished to do so, subject to the following conditions:
+.\"
+.\" The above copyright notice and this permission notice shall be included in all
+.\" copies or substantial portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+.\" AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+.\" LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+.\" OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+.\" SOFTWARE.
+.\"
+.TH "preloader" "1" "" "" "preloader man page"
+.SH NAME
+preloader \- preloads a program into memory to decrease load times
+.SH SYNOPSIS
+\fBpreloader\fR [\fIoptions\fR]... \fIprogram_name\fR
+.SH DESCRIPTION
+Although dynamically built executables has several advantages over static ones,
+overuse of dynamic libraries and/or large libraries can result in longer program
+load times.
+.PP
+While this is usually not noticeable, it becomes visible in short-lived
+processes, especially on older hardware and embedded devices like the Raspberry
+Pi. In this scenario, the load time can consume a significant amount of the
+execution time, or even more than the program's runtime.
+.PP
+Preloader attempts to address this issue by 'pre-loading' a program into
+memory in order to reduce the program's loading time. The preloaded process
+runs a server that listens for
+.BR preloader_cli (1)
+requests. Each request results in a new process being forked (with the
+libraries already loaded) and executed with the arguments provided by
+\fBpreloader_cli\fR(1).
+.SH OPTIONS
+.TP
+\fB\-p, \-\-port \fIport\fR
+Specifies the \fIport\fR to be listening (default: 3636). Note: \fBpreloader\fR
+uses 4 ports to do IPC, starting from '\fIport\fR', up to '\fIport\fR+3'. If
+there is a need to start multiples instances, please choose values that do not
+overlap.
+.TP
+\fB\-b, \-\-bind\-now
+Ask the dynamic linker to resolve all references immediately. This can shorten
+load times, so it might be useful to use it
+.TP
+\fB\-d, \-\-daemonize
+Run preloader as a daemon process, without blocking the terminal. Please note
+that while in daemon mode, logs are only visible if they are explicitly saved
+to file with the \fB-o\fR option.
+.TP
+\fB\-f, \-\-load\-libs \fItext_file\fR
+Loads a \fItext_file\fR containing a list of libraries (one per line). This is
+particularly useful when the library list is only known at runtime. The
+\fButils/getlibs.sh\fR helper script can run a program and return the complete
+list of libraries loaded at runtime.
+.TP
+\fB\-s, \-\-stop
+Stops the \fBpreloader\fR server for the default port, or for a specific port if
+\fB-p\fR is used.
+.TP
+\fB\-h, \-\-help
+Print (on the standard error) a brief usage of \fBpreloader\fR.
+.PP
+.SS Logging options
+.TP
+\fB\-o, \-\-log\-file \fIfile\fR
+Save log to \fIfile\fR (default is stderr).
+.TP
+\fB\-l, \-\-log\-level \fIinfo|err|crit|all\fR
+Specifies the log level (default: \fIinfo\fR)
+.br
+\fIinfo\fR: Only show information messages.
+.br
+\fIerr\fR: Only show error messages.
+.br
+\fIcrit\fR: Only show critical messages.
+.br
+\fIall\fR: All of the above.
+.br
+(Critical messages are always displayed)
+.SH NOTES
+.SS Preloader requirements
+Preloader requires the following environment to run:
+.IP - 3
+Kernel: Linux v2.5.44+ (i.e., with \fBepoll\fR(3) support)
+.IP -
+Architectures supported: ARM32, ARM64, i386 and x86-64.
+.IP -
+Libraries supported: GNU libc, Bionic, and uClibc-ng (do not work on Musl).
+.IP -
+System tools: Bash, grep, cut, any version
+.IP -
+GNU Make
+.RE
+.SH BUGS
+.PP
+No known bugs.
+.SH EXAMPLES
+Preload a process \fIfoo\fR in daemon mode and then, execute \fIfoo\fR
+through the client with arguments: a, b, and c. After that, stops the daemon.
+.PP
+.nf
+.RS
+$ preloader -d foo
+$ preloader_cli foo a b c
+$ preloader -s
+.RE
+.fi
+.SH AUTHOR
+.PP
+Written by Davidson Francis (davidsondfgl@gmail.com), see
+\fIcontributors\fR page in github.com/Theldus/preloader for more details.
+.SH SEE ALSO
+.BR preloader_cli (1)

@@ -136,6 +136,7 @@ uninstall:
 	$(RM) $(DESTDIR)$(LIBDIR)/libpreloader.so
 	$(RM) $(DESTDIR)$(BINDIR)/preloader
 	$(RM) $(DESTDIR)$(BINDIR)/preloader_cli
+	$(RM) $(DESTDIR)$(MANDIR)/man1/preloader.1
 	$(RM) $(DESTDIR)$(MANDIR)/man1/preloader_cli.1
 
 # Clean
