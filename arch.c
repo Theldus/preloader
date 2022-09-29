@@ -71,10 +71,7 @@ static int make_rwx(uintptr_t p, size_t min_size)
 
 	page_size    = sysconf(_SC_PAGESIZE);
 	aligned_addr = p & ~(page_size - 1);
-	target_size  = page_size;
-
-	if ((p - aligned_addr) < min_size)
-		target_size = page_size * 2;
+	target_size  = (min_size + (page_size - 1)) & ~(page_size - 1);
 
 	if (mprotect((void*)aligned_addr, target_size,
 		PROT_READ|PROT_WRITE|PROT_EXEC) < 0)
