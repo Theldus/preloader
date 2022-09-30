@@ -120,6 +120,15 @@ $(UTILS)/finder: $(UTILS)/finder.o
 	@echo "  LD      $@"
 	$(Q)$(CC) $^ -o $@ -lelf
 
+# LTime
+ltime: $(UTILS)/ltime
+$(UTILS)/ltime.o: $(UTILS)/ltime.c
+	@echo "  CC      $@"
+	$(Q)$(CC) $^ -c -o $@ $(CFLAGS)
+$(UTILS)/ltime: $(UTILS)/ltime.o
+	@echo "  LD      $@"
+	$(Q)$(CC) $^ -o $@ -lelf
+
 # Install
 install: libpreloader.so preloader_cli
 	@echo "  INSTALL      $^"
@@ -147,9 +156,11 @@ clean:
 	$(RM) preloader_cli.o
 	$(RM) $(TESTS)/test.o
 	$(RM) $(UTILS)/finder.o
+	$(RM) $(UTILS)/ltime.o
 	$(RM) $(CURDIR)/libpreloader.so
 	$(RM) $(CURDIR)/preloader_cli
 	$(RM) $(TESTS)/test
 	$(RM) $(UTILS)/finder
+	$(RM) $(UTILS)/ltime
 
 -include $(DEP)

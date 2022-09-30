@@ -28,3 +28,4 @@ libpreloader.so
 preloader_cli
 tests/test
 utils/finder
+utils/ltest
