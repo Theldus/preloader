@@ -134,7 +134,14 @@ static const char *search_path[] = {
 	"/usr/local/lib",
 	"/usr/local/lib/x86_64-linux-gnu",
 	"/lib/x86_64-linux-gnu",
-	"/usr/lib/x86_64-linux-gnu"
+	"/usr/lib/x86_64-linux-gnu",
+	/* Raspberry-Pi (ARM32) search path. */
+	"/opt/vc/lib",
+	"/usr/local/lib/arm-linux-gnueabihf",
+	"/lib/arm-linux-gnueabihf",
+	"/usr/lib/arm-linux-gnueabihf",
+	"/usr/lib/arm-linux-gnueabihf/libfakeroot",
+	"/usr/local/lib"
 };
 
 /* Some data about the ELF file. */
@@ -263,9 +270,9 @@ static Elf_Scn *find_section(struct open_elf *elf, Elf_Scn *scn,
 }
 
 /**
- * @brief Given an ELF file, the the amount of relocations present
+ * @brief Given an ELF file, get the amount of relocations present
  * in that file, i.e: the amount of entries for all sections of
- * type SHT_RELA.
+ * type SHT_RELA and SHT_REL.
  *
  * @param elf Opened ELF file.
  *
@@ -284,7 +291,7 @@ static uint64_t get_relocs_amnt(struct open_elf *elf)
 		if (gelf_getshdr(scn, &shdr) != &shdr)
 			continue;
 
-		if (shdr.sh_type != SHT_RELA)
+		if (shdr.sh_type != SHT_RELA && shdr.sh_type != SHT_REL)
 			continue;
 
 		size += (shdr.sh_size / shdr.sh_entsize);
