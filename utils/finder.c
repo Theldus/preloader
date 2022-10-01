@@ -141,6 +141,13 @@ static const char *search_path[] = {
 	"/lib/arm-linux-gnueabihf",
 	"/usr/lib/arm-linux-gnueabihf",
 	"/usr/lib/arm-linux-gnueabihf/libfakeroot",
+	"/usr/local/lib",
+	/* Raspberry-Pi (ARM64, not tested) search path. */
+	"/opt/vc/lib",
+	"/usr/local/lib/aarch64-linux-gnu",
+	"/lib/aarch64-linux-gnu",
+	"/usr/lib/aarch64-linux-gnu",
+	"/usr/lib/aarch64-linux-gnu/libfakeroot",
 	"/usr/local/lib"
 };
 
