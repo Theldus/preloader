@@ -23,6 +23,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <inttypes.h>
 
@@ -40,6 +41,8 @@
 #include "log.h"
 #include "util.h"
 
+#define READ_SIZE 512
+
 /* Environment variables pointer. */
 extern char **environ;
 
@@ -47,7 +50,8 @@ extern char **environ;
 static struct auxv_t {
 	unsigned long type;
 	unsigned long value;
-} *auxv = NULL;
+} auxv[64];
+static int auxv_init;
 
 /**
  * @brief For a given address @p p and minimal given
@@ -96,38 +100,31 @@ static int make_rwx(uintptr_t p, size_t min_size)
  */
 static void init_local_auxv(void)
 {
-	size_t cur_size;
+	char buff[READ_SIZE];
+	ssize_t rem_bytes;
 	ssize_t r;
 	char *a;
 	int fd;
 
-	#define READ_SIZE 512
-
-	cur_size = READ_SIZE;
+	rem_bytes = (ssize_t)sizeof(auxv);
 
 	fd = open("/proc/self/auxv", O_RDONLY);
 	if (fd < 0)
 		die("No /proc/self/auxv available, giving up...\n");
 
-	auxv = calloc(1, READ_SIZE);
-	if (!auxv)
+	a = (char*)&auxv;
+
+	while ((r = read(fd, buff, READ_SIZE)) > 0)
 	{
-		close(fd);
-		die("Unable to allocated auxv!\n");
+		if (r > rem_bytes)
+			die("Unable to fit entire system auxv!\n");
+
+		memcpy(a, buff, r);
+		a += r;
+		rem_bytes -= r;
 	}
 
-	a = (char*)auxv;
-
-	while ((r = read(fd, a, READ_SIZE)) == READ_SIZE)
-	{
-		a = realloc(auxv, cur_size + READ_SIZE);
-		if (!a)
-			die("Unable to realloc auxv!\n");
-
-		auxv      = (struct auxv_t *)a;
-		a        += cur_size;
-		cur_size += READ_SIZE;
-	}
+	auxv_init = 1;
 	close(fd);
 }
 
@@ -155,10 +152,10 @@ unsigned long getauxval(unsigned long type)
 {
 	struct auxv_t *a;
 
-	if (!auxv)
+	if (!auxv_init)
 		init_local_auxv();
 
-	for (a = auxv; a->type; a++)
+	for (a = &auxv[0]; a->type; a++)
 		if (a->type == type)
 			return (a->value);
 
