@@ -67,7 +67,7 @@ OBJ += arch/arch_$(ARCH).o arch/$(ARCH).o
 DEP = $(OBJ:.o=.d)
 
 # Phone targets
-.PHONY: tests finder install uninstall clean
+.PHONY: tests finder ltime install uninstall clean
 
 # Pretty print
 Q := @
@@ -121,7 +121,7 @@ $(UTILS)/finder: $(UTILS)/finder.o
 	$(Q)$(CC) $^ -o $@ -lelf
 
 # LTime
-ltime: $(UTILS)/ltime
+ltime: $(UTILS)/ltime libpreloader.so preloader_cli
 $(UTILS)/ltime.o: $(UTILS)/ltime.c
 	@echo "  CC      $@"
 	$(Q)$(CC) $^ -c -o $@ $(CFLAGS)
