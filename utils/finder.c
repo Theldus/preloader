@@ -148,7 +148,11 @@ static const char *search_path[] = {
 	"/lib/aarch64-linux-gnu",
 	"/usr/lib/aarch64-linux-gnu",
 	"/usr/lib/aarch64-linux-gnu/libfakeroot",
-	"/usr/local/lib"
+	"/usr/local/lib",
+	/* Android (ARM32 and ARM64) search path + Termux. */
+	"/system/lib",
+	"/system/lib64",
+	"/data/data/com.termux/files/usr/lib"
 };
 
 /* Some data about the ELF file. */
