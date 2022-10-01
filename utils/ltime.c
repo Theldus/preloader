@@ -495,12 +495,14 @@ static int start_daemon(void)
 	char *path;
 	pid_t pid;
 
-	path = "../libpreloader.so";
-	if (stat(path, &st) < 0)
+	path = realpath("../libpreloader.so", NULL);
+	if (!path || stat(path, &st) < 0)
 	{
-		path = "libpreloader.so";
-		if (stat(path, &st) < 0)
+		free(path);
+		path = realpath("libpreloader.so", NULL);
+		if (!path || stat(path, &st) < 0)
 		{
+			free(path);
 			path = "/usr/local/lib/libpreloader.so";
 			if (stat(path, &st) < 0)
 				return (-1);
@@ -515,6 +517,7 @@ static int start_daemon(void)
 		execlp(target_file, target_file, NULL);
 		exit(1);
 	}
+	free(path);
 
 	waitpid(pid, &wstatus, 0);
 
