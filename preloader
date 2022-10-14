@@ -37,7 +37,7 @@ start() {
 	if [ ! -f "$PRELOADER" ]; then
 		# Build if we're inside the source tree
 		if [ -f "$CURDIR/preloader.c" ]; then
-			make
+			make -C "$CURDIR/"
 		# Otherwise, we need to launch the installed version,
 		# if any.
 		else
