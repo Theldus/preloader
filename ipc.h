@@ -30,11 +30,13 @@
 	#define SV_DEFAULT_PORT 3636
 	#define SV_MAX_CLIENTS    16
 
-	extern int ipc_init(int port);
+	struct args;
+
+	extern int ipc_init(struct args *args);
 	extern void ipc_finish(void);
 	extern int ipc_wait_conn(void);
-	extern int ipc_wait_fds(int *stdout, int *stderr, int *stdin);
-	extern char* ipc_recv_msg(int conn, int *argc_p);
+	extern char* ipc_recv_msg(int conn_fd, int *out, int *err,
+		int *in, int *argc_p);
 	extern int ipc_send_int32(int32_t value, int fd);
 	extern void ipc_close(int num, ...);
 
