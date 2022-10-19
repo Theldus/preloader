@@ -45,10 +45,10 @@ libraries already loaded) and executed with the arguments provided by
 .SH OPTIONS
 .TP
 \fB\-p, \-\-port \fIport\fR
-Specifies the \fIport\fR to be listening (default: 3636). Note: \fBpreloader\fR
-uses 4 ports to do IPC, starting from '\fIport\fR', up to '\fIport\fR+3'. If
-there is a need to start multiples instances, please choose values that do not
-overlap.
+Specifies the \fIport\fR to be listening (default: 3636). Note: Please note
+that \fIport\fR is just an abstraction. Preloader uses Unix Domain Sockets
+for IPC, and the port number only serves to compose the socket file name and
+distinguish between multiple instances.
 .TP
 \fB\-b, \-\-bind\-now
 Ask the dynamic linker to resolve all references immediately. This can shorten
@@ -93,7 +93,7 @@ Specifies the log level (default: \fIinfo\fR)
 .SS Preloader requirements
 Preloader requires the following environment to run:
 .IP - 3
-Kernel: Linux v2.5.44+ (i.e., with \fBepoll\fR(3) support)
+Operating Sytem: Linux only.
 .IP -
 Architectures supported: ARM32, ARM64, i386 and x86-64.
 .IP -

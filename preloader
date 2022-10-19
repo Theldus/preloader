@@ -138,37 +138,45 @@ Examples:
   etc
 
 Options:
-  -p,--port             Specifies the port to be listening (default: 3636).
-                        Note: $SCRIPT_NAME uses 4 ports to do IPC, starting
-                        from 'port', up to 'port+3'. If you want to start
-                        multiples instances, please take this into account.
+  -p,--port <port>
+        Specifies the port to be listening (default: 3636).
+        Note: Please note that 'port' is just an abstraction.
+        Preloader uses Unix Domain Socket for IPC and the port
+        number only serves to compose the socket file name.
 
-  -b,--bind-now         Performs immediate binding, i.e: uses LD_BIND_NOW.
-  -d,--daemonize        Daemonizes the server (disabled by default).
-                        (Please note that logs are only saved if a file
-                         is specified with -o, otherwise, they are discarded).
+  -b,--bind-now
+        Performs immediate binding, i.e: uses LD_BIND_NOW.
 
-  -f,--load-libs        Preloads a set of libraries (one per line) defined in
-                        a text file. This is especially useful if the program
-                        dynamically loads *many* libraries.
+  -d,--daemonize
+        Daemonizes the server (disabled by default).
+        (Please note that logs are only saved if a file
+        is specified with -o, otherwise, they are discarded).
 
-  -s,--stop             Stop daemon for a default port, or for a given port if
-                        -p is specified.
+  -f,--load-libs <file>
+        Preloads a set of libraries (one per line) defined in
+        a text file. This is especially useful if the program
+        dynamically loads *many* libraries.
+
+  -s,--stop
+        Stop daemon for a default port, or for a given port if
+        -p is specified.
 
 Logging:
-  -o,--log-file <file>  Save log to <file> (default is stderr).
+  -o,--log-file <file>
+        Save log to <file> (default is stderr).
 
   -l,--log-level <info|err|crit|all>
-                        Specifies the log level (default: info):
-                        (Critical messages are always displayed)
+        Specifies the log level (default: info):
+        (Critical messages are always displayed)
 
-                        info: Only show information messages, that might be
-                              useful or not.
-                        err:  Only show error messages.
-                        crit: Only show critical messages.
-                        all:  All of the above.
+        info: Only show information messages, that might be
+              useful or not.
+        err:  Only show error messages.
+        crit: Only show critical messages.
+        all:  All of the above.
 
-  -h,--help             This help
+  -h,--help
+        This help
 EOF
 	exit 1
 }
