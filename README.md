@@ -147,26 +147,26 @@ $ preloader_cli myfoo param1 param2 ... paramN
 <details><summary>Click to expand</summary>
 
 Preloader also allows multiple instances to run simultaneously, as long as they
-each use a different set of ports. By default, preloader uses ports 3636, 3637,
-3638, and 3639. The first port is for control messages, and the other three are
-for redirecting I/O.
-
-To specify a different port, use the `-p,--port` flag (the other 3 are increments
-of the first).
+each use a different 'port'¹ number. To specify a different port, use the
+`-p,--port` flag.
 
 If you want to preload foo and bar at the same time, you could do:
 ```bash
-$ preloader -d -p 4040 foo # (4040-4043)
-$ preloader -d -p 4044 bar
+$ preloader -d -p 4040 foo
+$ preloader -d -p 4041 bar
 
 # Later
 $ preloader_cli -p 4040 foo arg1 argN
-$ preloader_cli -p 4044 bar a b c
+$ preloader_cli -p 4041 bar a b c
 
 # Stopping them
 $ preloader -s -p 4040
-$ preloader -s -p 4044
+$ preloader -s -p 4041
 ```
+
+¹Note: Please note that 'port' does not imply a TCP/UDP port. Preloader uses Unix
+Domain Socket for IPC and the port number only serves to compose the socket file
+name and distinguish between multiple instances.
 </details>
 
 ### Transparent preloading
@@ -390,7 +390,7 @@ since the forks are from the target process itself, so all relocations
 As the preloader is quite 'low-level', there are a number of limitations on the
 environment it supports:
 
-- Kernel: Linux v2.5.44+ (i.e., with `epoll(3)` support)
+- Operating System: Linux-only
 - Architectures supported: ARM32, ARM64, i386 and x86-64
 - Libraries supported: GNU libc, Bionic, and uClibc-ng (do not work on Musl)
 - System tools: Bash, grep, cut, any version
