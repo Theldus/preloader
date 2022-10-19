@@ -33,12 +33,16 @@
 #include <signal.h>
 #include <unistd.h>
 #include <netinet/in.h>
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 
 #ifndef PRG_NAME
 #define PRG_NAME "preloader_cli"
+#endif
+
+#ifndef PID_PATH
+#define PID_PATH "/tmp"
 #endif
 
 #define die(...) \
@@ -51,9 +55,6 @@
 
 /* Process PID. */
 static pid_t process_pid;
-
-/* epoll fd. */
-static int epfd;
 
 /**
  * @brief Given a 32-bit message, encodes the content
@@ -89,87 +90,43 @@ static inline int32_t msg_to_int32(uint8_t *msg)
 }
 
 /**
- * @brief Sends a buffer @p buff of length @p len to the
- * connection specified in @p conn.
- *
- * This routine differs from send() as it guarantees that
- * all bytes are sent.
- *
- * @param conn Target receiver.
- * @param buff Buffer to be sent.
- * @param len Buffer length.
- * @param flags Additional flags.
- *
- * @return If success, returns 0, otherwise, -1.
- */
-static ssize_t send_all(
-	int conn, const void *buf, size_t len, int flags)
-{
-	const char *p;
-	ssize_t ret;
-
-	if (conn < 0)
-		return (-1);
-
-	p = buf;
-	while (len)
-	{
-		ret = send(conn, p, len, flags);
-		if (ret == -1)
-			return (-1);
-		p += ret;
-		len -= ret;
-	}
-	return (0);
-}
-
-/**
- * Structure that holds all data that should be initially
- * send to the server.
- */
-struct run_data
-{
-	uint8_t argc[4];
-	uint8_t amt_bytes[4];
-	char *cwd_argv;
-};
-
-/**
  * @brief Prepare the initial data that should be sent to the
- * server and saves into @p rd.
+ * server and returns them as a char buffer.
  *
- * @param rd Structure that holds the data to be sent.
+ * @param size Amount of data to be sent.
  * @param argc Argument count.
  * @param argv Argument list.
  *
- * @return If success, returns the amount of bytes to be sent,
- * otherwise, returns -1.
+ * @return If success, returns the data to be sent (as an char
+ * array), otherwise, NULL.
  */
-static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
+static char* prepare_data(size_t *size, int argc, char **argv)
 {
 	int i;
 	uint32_t amnt;
+	char *p, *buff;
 	char cwd[4096] = {0};
-	char *p;
-
-	int32_to_msg(argc, rd->argc);
 
 	/* Get current working directory. */
 	if (!getcwd(cwd, sizeof(cwd)))
-		return (-1);
+		return (NULL);
 
+	/* Get the amounr of data to be sent. */
 	amnt = (uint32_t)strlen(cwd);
 	for (i = 0; i < argc; i++)
 		amnt += (uint32_t)strlen(argv[i]);
-	amnt += argc + 1; /* + number of '|'. */
-
-	int32_to_msg(amnt, rd->amt_bytes);
+	amnt += argc + 1; /* + number of 'NUL'. */
+	amnt += 8; /* argc + amt_bytes. */
 
 	/* Allocate and create buffer to be sent. */
-	rd->cwd_argv = calloc(amnt + 1, sizeof(char));
-	if (!rd->cwd_argv)
-		return (-1);
-	p = rd->cwd_argv;
+	buff = calloc(amnt + 1, sizeof(char));
+	if (!buff)
+		return (NULL);
+
+	int32_to_msg(argc, (uint8_t*)buff);
+	int32_to_msg(amnt, (uint8_t*)buff + 4);
+
+	p = buff + 8; /* skip argc + amnt. */
 
 	strcpy(p, cwd);
 	p += strlen(p) + 1;
@@ -179,7 +136,8 @@ static ssize_t prepare_data(struct run_data *rd, int argc, char **argv)
 		p += strlen(p) + 1;
 	}
 
-	return (amnt);
+	*size = amnt;
+	return (buff);
 }
 
 /**
@@ -312,112 +270,83 @@ static char **parse_args(int *new_argc, char **argv, int *port)
 }
 
 /**
- * @brief Connect to a given port @p port (localhost) and
+ * @brief Connect to a given Unix Domain Socket ID and
  * saves the socket into @p sock.
  *
- * @param port Port to be connect.
+ * @param port Socket ID to be connect.
  * @param sock Returned socket pointer.
  *
  * @return Returns 0 if success, -1 otherwise.
  */
 static int do_connect(uint16_t port, int *sock)
 {
-	struct sockaddr_in sock_addr;
+	struct sockaddr_un sock_addr;
+
+	/* Validate path. */
+	if (sizeof PID_PATH + sizeof "/preloader_65535.sock" >
+		sizeof(sock_addr.sun_path))
+	{
+		die("Socket path exceeds maximum allowed! (%zu)\n",
+			sizeof(sock_addr.sun_path));
+	}
 
 	/* Create socket. */
-	*sock = socket(AF_INET, SOCK_STREAM, 0);
+	*sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (*sock < 0)
 		die("Unable to create a socket!\n");
 
 	memset((void*)&sock_addr, 0, sizeof(sock_addr));
-	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	sock_addr.sin_port = htons(port);
+	sock_addr.sun_family = AF_UNIX;
+	snprintf(sock_addr.sun_path, sizeof sock_addr.sun_path - 1,
+		"%s/preloader_%d.sock", PID_PATH, port);
 
 	return connect(*sock, (struct sockaddr *)&sock_addr,
 		sizeof(sock_addr));
 }
 
 /**
- * @brief For a given event @p evt, check if there is
- * an epoll error.
+ * @brief Send to @p sock all the data in the buffer @p buffer_data
+ * and also the file descriptors the client process have too.
  *
- * @param evt Epoll event.
+ * @param sock Connection to send the data + fds.
+ * @param buff_data Data to be sent.
+ * @param buff_data_len Buffer length.
  *
- * @return Returns 0 if success, 1 if error.
+ * @return Returns a positive number if success, otherwise, returns
+ * a number lesser than or equal 0.
  */
-static inline int epoll_event_error(uint32_t evt)
+static ssize_t send_fds(int sock, char *buff_data, size_t buff_data_len)
 {
-	if ((evt & EPOLLERR) ||
-		(evt & EPOLLPRI))
-	{
-		return (1);
-	}
-	return (0);
-}
+	struct cmsghdr *cmsghdr;
+	struct msghdr msghdr;
+	struct iovec iov;
+	int fds[3] = {STDOUT_FILENO, STDERR_FILENO, STDIN_FILENO};
 
-/**
- * @brief Handle an epoll event.
- *
- * For a given epoll event @p ev, reads up to (sizeof buff)
- * bytes and then send it back to @p out_fd.
- *
- * @param ev Epoll event.
- * @param out_fd Output file descriptor to send the input msg.
- * @param is_sock Flag that signals if the input fd is a sock
- *                or not.
- *
- * @return Returns 0 if success, -1 if error (including EOF).
- */
-static int handle_epoll_event(struct epoll_event *ev, int out_fd,
-	int is_sock)
-{
-	static char buff[1024];
-	ssize_t amnt;
-	int cfd; /* close fd. */
+	char buff[CMSG_SPACE(3 * sizeof(int))];
 
-	amnt = read(ev->data.fd, buff, sizeof buff);
+	/* Fill message header and our I/O vec. */
+	memset(&msghdr, 0, sizeof(msghdr));
+	msghdr.msg_iov = &iov;
+	msghdr.msg_iovlen = 1;
+	iov.iov_base = buff_data;
+	iov.iov_len = buff_data_len;
 
-	/* Check if EOF or error... if so, close the file descriptor and
-	 * the connection, if fd belongs to a socket. */
-	if (amnt <= 0)
-	{
-		/* If 'is_sock' is true, our input fd is a socket, otherwise,
-		 * output fd is a socket. */
-		cfd = (is_sock ? ev->data.fd : out_fd);
-		close(cfd);
+	/* Set 'msghdr' fields that describe ancillary data */
+	msghdr.msg_control = buff;
+	msghdr.msg_controllen = sizeof(buff);
 
-		/* Remove from epoll, if not already removed. */
-		epoll_ctl(epfd, EPOLL_CTL_DEL, ev->data.fd, NULL);
-		return (-1);
-	}
+	/* Set up ancillary data describing file descriptor to send */
+	cmsghdr = CMSG_FIRSTHDR(&msghdr);
+	memset(cmsghdr, 0, sizeof(*cmsghdr));
+	cmsghdr->cmsg_level = SOL_SOCKET;
+	cmsghdr->cmsg_type = SCM_RIGHTS;
+	cmsghdr->cmsg_len = CMSG_LEN(sizeof(int) * 3);
 
-	if (write(out_fd, buff, amnt) != amnt)
-		return (-1);
+	/* Copy fds. */
+	memcpy(CMSG_DATA(cmsghdr), &fds, sizeof(int) * 3);
 
-	return (0);
-}
-
-/**
- * @brief Check if the file descriptor @p fd
- * belongs to /dev/null.
- *
- * @param fd File Descriptor to be checked.
- *
- * @return Returns 1 if fd is /dev/null, 0
- * otherwise.
- */
-static int is_devnull(int fd)
-{
-	struct stat st_fd;
-	struct stat dev_null;
-	return (
-		fstat(fd, &st_fd) == 0 &&
-		S_ISCHR(st_fd.st_mode) &&
-		stat("/dev/null", &dev_null) == 0 &&
-		st_fd.st_dev == dev_null.st_dev &&
-		st_fd.st_ino == dev_null.st_ino
-	);
+	/* Send real data plus ancillary data */
+	return sendmsg(sock, &msghdr, 0);
 }
 
 /**
@@ -438,24 +367,15 @@ static void sig_handler(int sig)
 /* Main routine. */
 int main(int argc, char **argv)
 {
-	struct epoll_event ev, events[3]; /* Epoll events. */
-	uint8_t ret_buff[4]; /* Generic buffer to I/O.     */
-	struct run_data rd;  /* Data to be sent to the server. */
+	uint8_t ret_buff[4]; /* Generic buffer to I/O.         */
+	char *send_buff;     /* Data to be sent to the server. */
 	char **new_argv;     /* New argument list.          */
 	int new_argc;        /* New argument count.         */
-	ssize_t amnt;        /* Amount of bytes to be sent. */
+	size_t amnt;         /* Amount of bytes to be sent. */
 	int32_t ret;         /* Generic int32_t to I/O.     */
-	int nfds;            /* Number of fds with events.  */
 	int port;            /* Main server/control port.   */
-	int i;               /* Loop index.                 */
 
 	int sock;            /* Control socket fd.    */
-	int sock_stdout;     /* Stdout socket.        */
-	int sock_stderr;     /* Stderr socket.        */
-	int sock_stdin;      /* Stdin socket.         */
-	int closed_fds;      /* Number of closed fds. */
-
-	closed_fds = 0;
 	ret = 42;
 
 	signal(SIGINT,  sig_handler);
@@ -466,28 +386,19 @@ int main(int argc, char **argv)
 	new_argv = parse_args(&new_argc, argv, &port);
 
 	/* Prepare data to be sent. */
-	if ((amnt = prepare_data(&rd, new_argc, new_argv)) < 0)
+	if (!(send_buff = prepare_data(&amnt, new_argc, new_argv)))
 		die("Unable to prepare data to be sent!\n");
 
 	/* Connect to server port. */
 	if (do_connect(port, &sock) < 0)
 		die("Unable to connect on sv port %d!\n", port);
 
-	/* Send argc, amt_bytes, cwd and argv. */
-	if (send_all(sock, rd.argc, sizeof rd.argc, 0) < 0)
-		die("Cant send argc, aborting!...\n");
-	if (send_all(sock, rd.amt_bytes, sizeof rd.amt_bytes, 0) < 0)
-		die("Cant send amt_bytes, aborting!...\n");
-	if (send_all(sock, rd.cwd_argv, amnt, 0) < 0)
-		die("Cant send cwd_argv, aborting!...\n");
-
-	/* Now connect to "I/O" ports. */
-	if (do_connect(port + 1, &sock_stdout) < 0)
-		die("Unable to connect on stdout port %d!\n", port + 1);
-	if (do_connect(port + 2, &sock_stderr) < 0)
-		die("Unable to connect on stderr port %d!\n", port + 2);
-	if (do_connect(port + 3, &sock_stdin)  < 0)
-		die("Unable to connect on stdin port %d!\n",  port + 3);
+	/*
+	 * Send fds (stdout, stderr and stdin) +
+	 * data (argc, amt_bytes, cwd and argv)
+	 */
+	if (send_fds(sock, send_buff, amnt) != (ssize_t)amnt)
+		die("Unable to send the file descriptors!...\n");
 
 	/* Wait for process PID. */
 	if ((amnt = recv(sock, ret_buff, 4, 0)) != 4)
@@ -497,97 +408,10 @@ int main(int argc, char **argv)
 	process_pid = ret;
 
 	/*
-	 * Setup epoll to listen to our fds.
-	 *
-	 * Note: I was quite reluctant to use epoll here, since poll()
-	 * should be more than enough for just 3 fds.... right?....
-	 *
-	 * Er, nope.... for some mysterious reason, listening to 3 fds
-	 * (mostly stdin) was adding huge overhead (twice slower) when
-	 * multiple clients were running at the same time. More
-	 * interestingly, poll'ing() from sock_stdout + sock_stderr
-	 * did not incur overhead, but only when I used stdin and only
-	 * with it.
-	 *
-	 * Fortunately, using epoll() has brought back the same
-	 * performance the code had several commits ago.
+	 * Our fds were already sent to the preloader and they're
+	 * used directly by the original process. No need to poll
+	 * or anything else here =).
 	 */
-	epfd = epoll_create1(0);
-	if (epfd < 0)
-		die("Unable to create an epoll file descriptor!\n");
-
-	ev.events  = EPOLLIN;
-	ev.data.fd = sock_stdout;
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
-		die("Unable to add stdout event!\n");
-
-	ev.data.fd = sock_stderr;
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
-		die("Unable to add stderr event!\n");
-
-	ev.data.fd = STDIN_FILENO;
-	if (epoll_ctl(epfd, EPOLL_CTL_ADD, ev.data.fd, &ev) < 0)
-	{
-		/*
-		 * epoll() is unable to read from regular file and
-		 * /dev/null. If /dev/null, we can close the socket
-		 * and everything should be fine, if not, we have
-		 * a problem...
-		 */
-		if (errno == EPERM)
-		{
-			if (!is_devnull(STDIN_FILENO))
-			{
-				die("%s is unable to read from stdin when it is "
-					"redirected from a file, please use a pipe!\n",
-					argv[0]);
-			}
-			else
-				/* Simulate an 'EOF'. */
-				close(sock_stdin);
-		}
-		else
-			die("Unable to add stdin event!\n");
-	}
-
-	/* Listen to our fds. */
-	while (1)
-	{
-		/* Check if we should close. */
-		if (closed_fds >= 2)
-			break;
-
-		/* If not, wait for new stuff. */
-		nfds = epoll_wait(epfd, events, 3, -1);
-		if (nfds < 0)
-			break;
-
-		for (i = 0; i < nfds; i++)
-		{
-			if (epoll_event_error(events[i].events))
-				goto out_epoll;
-
-			/* handle stdout. */
-			if (events[i].data.fd == sock_stdout)
-			{
-				if (handle_epoll_event(&events[i], STDOUT_FILENO, 1) < 0)
-					closed_fds++;
-			}
-
-			/* handle stderr. */
-			else if (events[i].data.fd == sock_stderr)
-			{
-				if (handle_epoll_event(&events[i], STDERR_FILENO, 1) < 0)
-					closed_fds++;
-			}
-
-			/* handle stdin. */
-			else if (events[i].data.fd == STDIN_FILENO)
-				handle_epoll_event(&events[i], sock_stdin, 0);
-		}
-	}
-
-out_epoll:
 
 	/* Wait for return value. */
 	if ((amnt = recv(sock, ret_buff, 4, 0)) == 4)
@@ -595,11 +419,6 @@ out_epoll:
 
 out:
 	close(sock);
-	close(sock_stdout);
-	close(sock_stderr);
-	close(sock_stdin);
-	close(epfd);
-
-	free(rd.cwd_argv);
+	free(send_buff);
 	return ((int)ret);
 }

@@ -81,14 +81,11 @@ static char* setup_child(int conn_fd, int stdout_fd, int stderr_fd,
 	/* Deallocates reaper data structures. */
 	reaper_finish();
 
-	/* Redirect stdout and stderr to the socket. */
+	/* Redirect std* to the preloader_cli fds. */
 	dup2(stdin_fd,  STDIN_FILENO);
 	dup2(stdout_fd, STDOUT_FILENO);
 	dup2(stderr_fd, STDERR_FILENO);
 	ipc_close(4, stdin_fd, stdout_fd, stderr_fd, conn_fd);
-
-	/* Re-enable line-buffering again for stdout. */
-	setvbuf(stdout, NULL, _IOLBF, 0);
 
 	/* Set the current directory. */
 	if (chdir(cwd_argv) < 0)
@@ -124,20 +121,19 @@ char* daemon_main(int *argc)
 	int conn_fd;
 	pid_t pid;
 
-	ipc_init(args.port);
+	ipc_init(&args);
 	reaper_init();
 
 	while (1)
 	{
 		conn_fd  = ipc_wait_conn();
-		cwd_argv = ipc_recv_msg(conn_fd, argc);
+		cwd_argv = ipc_recv_msg(conn_fd, &stdout_fd, &stderr_fd,
+			&stdin_fd, argc);
 
 		if (!cwd_argv)
-			die("unable to receive message\n");
-
-		if (ipc_wait_fds(&stdout_fd, &stderr_fd, &stdin_fd) < 0)
 		{
-			log_info("Error while waiting for fds, skipping...\n");
+			log_info("Client took too long to respond, aborting!!!\n");
+			ipc_close(1, conn_fd);
 			goto again;
 		}
 

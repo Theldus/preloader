@@ -30,17 +30,17 @@ MANPAGES = $(CURDIR)/doc/man1
 LIBDIR   = $(PREFIX)/lib
 MANDIR   = $(PREFIX)/man
 
+# If TMPDIR exists, use it instead of /tmp
+ifneq ($(TMPDIR),)
+	CFLAGS += -DPID_PATH=\"$(TMPDIR)\"
+endif
+
 # Flags
 CC       ?= gcc
 CFLAGS   += -O2 -g -Wall -Wextra
 PREFLAGS  = -fPIC $(INCLUDE) -fvisibility=hidden $(CFLAGS)
 LDFLAGS   = -shared
 LDLIBS    = -ldl -pthread
-
-# If TMPDIR exists, use it instead of /tmp
-ifneq ($(TMPDIR),)
-	PREFLAGS += -DPID_PATH=\"$(TMPDIR)\"
-endif
 
 #
 # Guess target architecture:
