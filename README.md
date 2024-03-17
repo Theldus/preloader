@@ -408,6 +408,7 @@ reasons to use a static binary or not, which may include:
 Preloader is lightweight and should download quickly even on slower connections.
 - **Disk space**: There may not be enough disk space to download a static version
 of a program.
+- **Limitations**: Recent Androids only support dynamically linked binaries.
 
 ## Building/Installing
 
