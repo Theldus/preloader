@@ -98,6 +98,5 @@ int arch_patch_start(uintptr_t start)
 		patch[8 + i] = u_addr.val[i];
 
 	memcpy((void*)start, patch, sizeof patch);
-	printf("patched\n");
 	return (0);
 }

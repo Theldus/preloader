@@ -59,7 +59,7 @@ LDLIBS    = -ldl -pthread
 #
 ARCH ?= $(shell cat .cache 2>/dev/null || \
 	echo | $(CC) -dM -E - | \
-	grep -P "__i386__|__x86_64__|__arm__|__aarch64__|__riscv" | \
+	grep -P "__i386__|__x86_64__|__arm__|__aarch64__|__riscv " | \
 	cut -d' ' -f2 | sed 's/__//g' | tee .cache)
 
 OBJ =  preloader.o ipc.o util.o log.o load.o reaper.o arch.o
