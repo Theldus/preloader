@@ -391,7 +391,7 @@ As the preloader is quite 'low-level', there are a number of limitations on the
 environment it supports:
 
 - Operating System: Linux-only
-- Architectures supported: ARM32, ARM64, i386 and x86-64
+- Architectures supported: ARM32 (armv6), Aarch64 (armv8), i386, x86-64 and RISC-V (RV64I+C)
 - Libraries supported: GNU libc, Bionic, and uClibc-ng (do not work on Musl)
 - System tools: Bash, grep, cut, any version
 - GNU Make
