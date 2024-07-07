@@ -392,9 +392,14 @@ environment it supports:
 
 - Operating System: Linux-only
 - Architectures supported: ARM32 (armv6), Aarch64 (armv8), i386, x86-64 and RISC-V (RV64I+C)
-- Libraries supported: GNU libc, Bionic, and uClibc-ng (do not work on Musl)
+- Libraries supported: GNU libc, Bionic, and uClibc-ng (do not work on Musl[^muslnote])
 - System tools: Bash, grep, cut, any version
 - GNU Make
+
+[^muslnote]: Unlike GNU libc, Bionic, and uClibc, Musl's dynamic loader loads libraries
+after the '_start' of the program, rather than before. This results in the preloader's
+main loop not being invoked. While it is possible to fix this by rearranging the main
+loop, it would require significant code changes, which are currently not feasible.
 
 ## Should I use it?
 
